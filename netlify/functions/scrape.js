@@ -1,3 +1,5 @@
+// netlify/functions/scrape.js (Versi Final Anti-Crash)
+
 const axios = require('axios');
 const cheerio = require('cheerio');
 const BASE_URL = 'https://samehadaku.li';
@@ -8,34 +10,64 @@ const createResponse = (body, statusCode = 200) => ({
   body: JSON.stringify(body),
 });
 
+// Fungsi untuk mengambil HTML dengan timeout yang jelas
+async function getHTML(url) {
+    try {
+        // Beri batas waktu 8 detik. Jika lebih, akan gagal.
+        const response = await axios.get(url, { timeout: 8000 });
+        return response.data;
+    } catch (error) {
+        // Jika error karena timeout, beri pesan yang jelas.
+        if (error.code === 'ECONNABORTED') {
+            console.error(`Timeout saat mencoba mengakses: ${url}`);
+            throw new Error('Request Timeout');
+        }
+        console.error(`Gagal mengambil HTML dari ${url}:`, error.message);
+        throw new Error('Failed to fetch HTML');
+    }
+}
+
 async function scrapeHomepage() {
-    const { data } = await axios.get(BASE_URL);
+    const data = await getHTML(BASE_URL);
     const $ = cheerio.load(data);
-    const latest = [];
+    let latest = [];
     let trending = {};
 
-    const trendingEl = $('.trending .tdb a');
-    if (trendingEl.length) {
-        const style = $('.imgxb').attr('style');
-        const poster = style ? style.match(/url\('(.*?)'\)/)[1] : '';
-        trending = {
-            title: trendingEl.find('.numb b').text().trim(),
-            url: trendingEl.attr('href'),
-            poster: poster
-        };
+    // Scrape Trending dengan proteksi error
+    try {
+        const trendingEl = $('.trending .tdb a');
+        if (trendingEl.length) {
+            const style = $('.imgxb').attr('style');
+            const poster = style ? style.match(/url\('(.*?)'\)/)[1] : '';
+            trending = {
+                title: trendingEl.find('.numb b').text().trim(),
+                url: trendingEl.attr('href'),
+                poster: poster
+            };
+        }
+    } catch (e) {
+        console.error("Gagal scrape bagian Trending:", e.message);
+        trending = { error: "Gagal memuat trending." };
     }
 
-    $('.listupd.normal .bs').each((i, el) => {
-        const item = $(el).find('.bsx a');
-        if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
-            latest.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src'), episode: item.find('.epx').text().trim() });
-        }
-    });
+    // Scrape Rilis Terbaru dengan proteksi error
+    try {
+        $('.listupd.normal .bs').each((i, el) => {
+            const item = $(el).find('.bsx a');
+            if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
+                latest.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src'), episode: item.find('.epx').text().trim() });
+            }
+        });
+    } catch (e) {
+        console.error("Gagal scrape bagian Rilis Terbaru:", e.message);
+        if (latest.length === 0) latest.push({ error: "Gagal memuat rilis terbaru." });
+    }
+    
     return { trending, latest };
 }
 
 async function scrapeEpisodes(url) {
-    const { data } = await axios.get(decodeURIComponent(url));
+    const data = await getHTML(decodeURIComponent(url));
     const $ = cheerio.load(data);
     const episodes = [];
     $('#mainepisode .episodelist ul li').each((i, el) => {
@@ -53,7 +85,7 @@ async function scrapeEpisodes(url) {
 }
 
 async function scrapeWatch(url) {
-    const { data } = await axios.get(decodeURIComponent(url));
+    const data = await getHTML(decodeURIComponent(url));
     const $ = cheerio.load(data);
     return {
         videoEmbedUrl: $('#pembed iframe').attr('src'),
@@ -63,15 +95,20 @@ async function scrapeWatch(url) {
 }
 
 exports.handler = async (event) => {
-  const { target, url, query } = event.queryStringParameters;
+  const { target, url } = event.queryStringParameters;
+  console.log(`[INFO] Function dipanggil dengan target: ${target}`);
   try {
-    if (target === 'home') return createResponse(await scrapeHomepage());
-    if (target === 'episodes') return createResponse(await scrapeEpisodes(url));
-    if (target === 'watch') return createResponse(await scrapeWatch(url));
-    // Logika search bisa ditambahkan di sini jika diperlukan
-    return createResponse({ error: 'Invalid target' }, 400);
+    let responseData;
+    if (target === 'home') responseData = await scrapeHomepage();
+    else if (target === 'episodes') responseData = await scrapeEpisodes(url);
+    else if (target === 'watch') responseData = await scrapeWatch(url);
+    else return createResponse({ error: 'Invalid target' }, 400);
+    
+    console.log(`[SUCCESS] Berhasil scrape target: ${target}`);
+    return createResponse(responseData);
+
   } catch (error) {
-    console.error(`Scraping Error on target ${target}:`, error.message);
-    return createResponse({ error: 'Failed to scrape data from the source.' }, 500);
+    console.error(`[FATAL ERROR] Gagal total pada target ${target}:`, error.message);
+    return createResponse({ error: `Sumber data tidak merespon atau error: ${error.message}` }, 504); // 504 Gateway Timeout
   }
 };
