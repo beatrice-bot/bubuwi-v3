@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubuwi-V3</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="https://i.imgur.com/9uK2OPw.png" type="image/png">
+    <link rel="apple-touch-icon" href="https://i.imgur.com/9uK2OPw.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+    <div id="loading-overlay" style="display: none;"><div class="spinner"></div></div>
+
+    <div id="login-page" class="view">
+        <div class="login-container">
+            <h1>Selamat Datang di Bubuwi-V3</h1>
+            <button id="login-btn" class="login-box">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ2sSeQqjaUTuZ3gRgkKjidpaipF_l6s72lBw&s" alt="Google Logo">
+                <span>Login dengan Google</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="app-container" style="display: none;">
+        <main id="main-content"></main>
+        <nav id="bottom-nav">
+            <button class="nav-button" data-view="home"><i class="fas fa-home"></i><span>Utama</span></button>
+            <button class="nav-button" data-view="subscribe"><i class="fas fa-bookmark"></i><span>Subscribe</span></button>
+            <button class="nav-button" data-view="history"><i class="fas fa-history"></i><span>Riwayat</span></button>
+            <button class="nav-button" data-view="account"><i class="fas fa-user"></i><span>Akun</span></button>
+        </nav>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.1/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    
+    <script src="app.js"></script>
+</body>
+</html>
