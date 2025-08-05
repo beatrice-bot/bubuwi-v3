@@ -1,3 +1,4 @@
+// === BAGIAN 1 DARI 3 DIMULAI ===
 'use strict';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -6,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         apiKey: "AIzaSyD8HjXwynugy5q-_KlqLajw27PDgUJ4QUk",
         authDomain: "bubuwi-pro.firebaseapp.com",
         projectId: "bubuwi-pro",
-        databaseURL: "https://bubuwi-pro-default-rtdb.asia-southeast1.firebasedatabase.app",
+        databaseURL: "https://bubuwi-pro-default-rtdb.asia-southeast1.firebasedata.app",
         storageBucket: "bubuwi-pro.appspot.com",
         messagingSenderId: "741891119074",
         appId: "1:741891119074:web:93cc65fb2cd94033aa4bbb"
@@ -19,21 +20,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 2. STATE APLIKASI ---
     let currentUser = null;
     let activeListeners = [];
-    let currentAnimeData = {};
+    let currentAnimeData = {}; // Menyimpan data anime (termasuk list episode) saat dibuka
 
     // --- 3. ELEMEN UTAMA ---
     const mainContent = document.getElementById('main-content');
     const loginPage = document.getElementById('login-page');
     const appContainer = document.getElementById('app-container');
     const loadingOverlay = document.getElementById('loading-overlay');
-    
+
     // --- 4. FUNGSI UTILITAS ---
     const showLoading = (isLoading) => { loadingOverlay.style.display = isLoading ? 'flex' : 'none'; };
     const generateKey = (str) => str ? str.replace(/[.#$[\]]/g, '_') : Date.now().toString();
 
     // --- 5. MODUL API (MENGAMBIL DATA DARI SCRAPER) ---
     const API = (() => {
-        const CACHE_DURATION = 15 * 60 * 1000;
+        const CACHE_DURATION = 15 * 60 * 1000; // Cache 15 menit
         async function fetchData(target, params = {}) {
             const query = new URLSearchParams({ target, ...params }).toString();
             const cacheKey = `bubuwi_cache_${query}`;
@@ -58,6 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 6. MODUL DATABASE (INTERAKSI DENGAN FIREBASE) ---
     const DB = (() => {
         const listen = (ref, callback) => {
+            // Hapus listener sebelumnya di path yang sama jika ada untuk menghindari duplikasi
+            const existing = activeListeners.find(l => l.ref.toString() === ref.toString());
+            if (existing) existing.ref.off('value', existing.callback);
+            activeListeners = activeListeners.filter(l => l.ref.toString() !== ref.toString());
+            
             ref.on('value', callback);
             activeListeners.push({ ref, callback });
         };
@@ -94,97 +100,116 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     })();
 
+// === BAGIAN 1 DARI 3 SELESAI ===
+// === BAGIAN 2 DARI 3 DIMULAI ===
+
     // --- 7. MODUL UI (TEMPLATE HTML & RENDER) ---
     const UI = (() => {
         const createAnimeCard = (anime) => `
             <div class="anime-card" data-url="${anime.url}">
                 <img src="${anime.poster}" alt="${anime.title}" loading="lazy">
                 <div class="title">${anime.episode || anime.title}</div>
-            </div>`;
-        const createPopularItem = (anime) => `
-            <div class="popular-item" data-url="${anime.url}">
-                <span class="rank">${anime.rank}</span>
-                <img src="${anime.poster}" alt="${anime.title}" loading="lazy">
-                <div class="info"><div class="title">${anime.title}</div></div>
-            </div>`;
-        const createSkeletonCards = (count = 6, type = 'card') => {
-            const className = type === 'card' ? 'anime-card skeleton skeleton-card' : 'popular-item skeleton skeleton-popular';
-            return Array(count).fill(`<div class="${className}"></div>`).join('');
-        };
+            </div>
+        `;
         const createEmptyState = (message) => `<div class="card empty-state-card">${message}</div>`;
+        const createSkeletonCards = (count = 6) => Array(count).fill('<div class="anime-card skeleton skeleton-card"></div>').join('');
 
         const templates = {
             home: () => `
-                <div class="hero-section">
-                    <img src="https://i.pinimg.com/originals/40/eb/71/40eb71374bfd72140300dbd8c8e5ba4a.gif" class="hero-bg" alt="Hero Background">
-                    <img src="https://i.imgur.com/9uK2OPw.png" class="hero-logo" alt="Bubuwi Logo">
-                    <h2 class="hero-title">Temukan Anime Favoritmu</h2>
-                </div>
-                <div class="content-section" id="trending-section">
-                     <h3><i class="fas fa-chart-line"></i> Trending Minggu Ini</h3>
-                    <div id="trending-list"></div>
-                </div>
-                <div class="content-section" id="latest-release-section">
-                    <h3><i class="fas fa-fire"></i> Baru Rilis</h3>
-                    <div class="anime-grid" id="latest-releases-list">${createSkeletonCards(6)}</div>
-                </div>
-                <div class="content-section" id="popular-section">
-                    <h3><i class="fas fa-star"></i> Populer</h3>
-                    <div class="popular-list" id="popular-list">${createSkeletonCards(3, 'popular')}</div>
-                </div>
-            `,
-            subscribe: () => `<div class="view-header card"><h3><i class="fas fa-bookmark"></i> Anime yang Di-subscribe</h3></div><div id="subscribed-list" class="anime-grid">${createSkeletonCards(6)}</div>`,
-            history: () => `<div class="view-header card"><h3><i class="fas fa-history"></i> Riwayat Tontonan</h3></div><div id="history-list" class="anime-grid">${createSkeletonCards(6)}</div>`,
-            account: () => `
-                <div class="account-logo-card card"><img src="https://i.imgur.com/9uK2OPw.png" alt="Bubuwi Logo" class="account-logo"></div>
-                <div class="account-info-card card">
-                    <img src="${currentUser.photoURL}" alt="User Profile" class="profile-pic">
-                    <h2>${currentUser.displayName}</h2><p>${currentUser.email}</p>
-                </div>
-                <div class="developer-contact card">
-                    <h4>Kontak Developer</h4>
-                    <a href="https://www.instagram.com/adnanmwa" target="_blank" class="contact-item"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSLht-agYy8VEU-3bkfGKEr9sqEe--B8jfA7Q&s" alt="Instagram"><span>@adnanmwa</span></a>
-                    <a href="https://www.tiktok.com/@adnansagiri" target="_blank" class="contact-item"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrLEt7CpnTRQ1va0on-RGO3aDsgpdlNFUoaw&s" alt="TikTok"><span>@adnansagiri</span></a>
-                </div>
-                <button id="logout-btn" class="logout-button">Logout</button>`,
+                <div id="home-view" class="view">
+                    <div class="hero-section">
+                        <img src="https://i.pinimg.com/originals/0b/e7/48/0be748204b77ec2211c3230442e468a9.gif" class="hero-bg" alt="Hero Background">
+                        <div class="hero-logo-frame"><img src="https://i.imgur.com/9uK2OPw.png" class="hero-logo" alt="Bubuwi Logo"></div>
+                        <h2 class="hero-title">Temukan Anime Favoritmu</h2>
+                    </div>
+                    <div class="search-section card">
+                        <input type="text" id="search-input" placeholder="Fitur pencarian belum tersedia...">
+                        <button id="search-button" disabled><i class="fas fa-search"></i></button>
+                    </div>
+                    <div class="content-section" id="trending-section">
+                         <h3><i class="fas fa-chart-line"></i> Trending Minggu Ini</h3>
+                        <div id="trending-list"></div>
+                    </div>
+                    <div class="content-section" id="latest-release-section">
+                        <h3><i class="fas fa-fire"></i> Baru Rilis</h3>
+                        <div class="anime-grid" id="latest-releases-list">${createSkeletonCards(12)}</div>
+                    </div>
+                </div>`,
+            subscribe: () => `
+                <div id="subscribe-view" class="view">
+                    <div class="view-header card"><h3><i class="fas fa-bookmark"></i> Anime yang Di-subscribe</h3></div>
+                    <div id="subscribed-list" class="anime-grid">${createSkeletonCards(6)}</div>
+                </div>`,
+            history: () => `
+                <div id="history-view" class="view">
+                    <div class="view-header card"><h3><i class="fas fa-history"></i> Riwayat Tontonan</h3></div>
+                    <div id="history-list" class="anime-grid">${createSkeletonCards(6)}</div>
+                </div>`,
+            account: (user) => `
+                <div id="account-view" class="view">
+                    <div class="account-logo-card card"><img src="https://i.imgur.com/9uK2OPw.png" alt="Bubuwi Logo" class="account-logo"></div>
+                    <div class="account-info-card card">
+                        <img src="${user.photoURL}" alt="User Profile" class="profile-pic">
+                        <div class="user-details"><h2>${user.displayName}</h2><p>${user.email}</p></div>
+                    </div>
+                    <div class="developer-contact card">
+                        <a href="https://www.instagram.com/adnanmwa" target="_blank" class="contact-item"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSLht-agYy8VEU-3bkfGKEr9sqEe--B8jfA7Q&s" alt="Instagram"><span>@adnanmwa</span></a>
+                        <a href="https://www.tiktok.com/@adnansagiri" target="_blank" class="contact-item"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrLEt7CpnTRQ1va0on-RGO3aDsgpdlNFUoaw&s" alt="TikTok"><span>@adnansagiri</span></a>
+                    </div>
+                    <button id="logout-btn" class="logout-button">Logout</button>
+                </div>`,
             episode: (data) => `
-                <button class="back-button"><i class="fas fa-arrow-left"></i> Kembali</button>
-                <div id="anime-detail-header" class="card"><img src="${data.poster}" alt="${data.title}"><div class="info"><h2>${data.title}</h2></div></div>
-                <div id="anime-detail-synopsis" class="card synopsis-card"><h4>Sinopsis</h4><p>${data.synopsis || 'Tidak ada sinopsis.'}</p></div>
-                <button id="subscribe-button" class="subscribe-button"><i class="fas fa-plus"></i> Subscribe</button>
-                <div class="episode-list-container card">
-                    <h4>Pilih Episode</h4>
-                    <div id="episode-list" class="episodes-grid">${data.episodes.map(ep => `<div class="episode-item" data-url="${ep.url}">${ep.title.replace(/Subtitle Indonesia|Download/gi, '').trim()}</div>`).join('')}</div>
+                <div id="episode-view" class="view">
+                    <button class="back-button"><i class="fas fa-arrow-left"></i> Kembali</button>
+                    <div id="anime-detail-header" class="card"><img src="${data.poster}" alt="${data.title}"><div class="info"><h2>${data.title}</h2></div></div>
+                    <div id="anime-detail-synopsis" class="card synopsis-card"><h4>Sinopsis</h4><p>${data.synopsis || 'Tidak ada sinopsis.'}</p></div>
+                    <button id="subscribe-button" class="subscribe-button"><i class="fas fa-plus"></i> Subscribe</button>
+                    <div class="episode-list-container card">
+                        <h4>Pilih Episode</h4>
+                        <div id="episode-list" class="episodes-grid">${data.episodes.map(ep => `<div class="episode-item" data-url="${ep.url}">Eps ${ep.title.match(/\d+/)}</div>`).join('')}</div>
+                    </div>
                 </div>`,
             watch: (data) => `
-                <button class="back-button"><i class="fas fa-arrow-left"></i> Kembali</button>
-                <div class="video-player-card card"><div class="video-player-container"><iframe id="video-player" src="${data.videoEmbedUrl || ''}" frameborder="0" allowfullscreen></iframe></div></div>
-                <div id="watch-info-box" class="card"><p>${data.episodeTitle}</p></div>
-                <div class="episode-navigation">
-                    <button class="nav-btn" ${!data.prevEpisodeUrl ? 'disabled' : ''} data-url="${data.prevEpisodeUrl}">Prev</button>
-                    <button class="nav-btn" ${!data.nextEpisodeUrl ? 'disabled' : ''} data-url="${data.nextEpisodeUrl}">Next</button>
-                </div>
-                <div class="episode-list-container-watch card">
-                    <h4>Episode Lainnya</h4>
-                    <div id="episode-list-watch" class="episodes-grid"></div>
-                </div>
-                <div id="add-comment-container" class="card">
-                    <h4>Tambahkan Komentar</h4>
-                    <div class="add-comment">
-                        <img src="${currentUser.photoURL}" alt="User" class="profile-pic-comment">
-                        <input type="text" id="comment-input" placeholder="Tulis komentarmu...">
-                        <button id="comment-submit-btn" disabled><i class="fas fa-paper-plane"></i></button>
+                <div id="watch-view" class="view">
+                    <button class="back-button"><i class="fas fa-arrow-left"></i> Kembali</button>
+                    <div class="video-player-card card"><div class="video-player-container"><iframe id="video-player" src="${data.videoEmbedUrl || ''}" frameborder="0" allowfullscreen></iframe></div></div>
+                    <div id="watch-info-box" class="card"><p>${data.episodeTitle}</p></div>
+                    <div class="episode-navigation">
+                        <button class="nav-btn" ${!data.prevEpisodeUrl ? 'disabled' : ''} data-url="${data.prevEpisodeUrl}">Prev</button>
+                        <button class="nav-btn" ${!data.nextEpisodeUrl ? 'disabled' : ''} data-url="${data.nextEpisodeUrl}">Next</button>
                     </div>
-                </div>
-                <div id="comments-list-container" class="card"><h4>Komentar</h4><div id="comments-list"></div></div>`,
+                    <div class="episode-list-container-watch card">
+                        <h4>Episode Lainnya</h4>
+                        <div id="episode-list-watch" class="episodes-grid"></div>
+                    </div>
+                    <div id="add-comment-container" class="card">
+                        <h4>Tambahkan Komentar</h4>
+                        <div class="add-comment">
+                            <img src="${currentUser.photoURL}" alt="User" class="profile-pic-comment">
+                            <input type="text" id="comment-input" placeholder="Tulis komentarmu...">
+                            <button id="comment-submit-btn" disabled><i class="fas fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+                    <div id="comments-list-container" class="card"><h4>Komentar</h4><div id="comments-list"></div></div>
+                </div>`,
         };
 
         return {
-            render: (view, data = {}) => { mainContent.innerHTML = templates[view](data); },
+            render: (view, data = {}) => {
+                mainContent.innerHTML = templates[view](data);
+            },
             renderHomepage: (data) => {
-                document.getElementById('trending-list').innerHTML = `<div class="card trending-card" data-url="${data.trending.url}"><img src="${data.trending.poster}" class="poster" alt="${data.trending.title}"><div class="info"><span class="label">Trending</span><span class="title">${data.trending.title}</span></div></div>`;
+                if (data.trending && data.trending.url) {
+                    document.getElementById('trending-list').innerHTML = `
+                        <div class="trending-card card" data-url="${data.trending.url}">
+                            <img src="${data.trending.poster}" class="poster" alt="${data.trending.title}">
+                            <div class="info">
+                                <span class="label">Trending</span>
+                                <span class="title">${data.trending.title}</span>
+                            </div>
+                        </div>`;
+                }
                 document.getElementById('latest-releases-list').innerHTML = data.latest.map(createAnimeCard).join('');
-                document.getElementById('popular-list').innerHTML = data.popularWeekly.map(createPopularItem).join('');
             },
             renderHistory: (snapshot) => {
                 const container = document.getElementById('history-list');
@@ -205,59 +230,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.innerHTML = comments.reverse().map(c => `
                     <div class="comment">
                         <img src="${c.pfp}" alt="pfp" class="profile-pic-comment">
-                        <div class="comment-content"><p class="username">${c.name}</p><p>${c.text.replace(/</g, "&lt;")}</p></div>
-                        ${currentUser && currentUser.uid === c.uid ? `<button class="delete-comment-btn" data-key="${c.key}"><i class="fas fa-trash"></i></button>` : ''}
+                        <div class="comment-content">
+                            <p class="username">${c.name}</p>
+                            <p>${c.text.replace(/</g, "&lt;")}</p>
+                        </div>
+                        ${currentUser && currentUser.uid === c.uid ? `<button class="delete-comment-btn" data-anime-url="${animeUrl}" data-episode-url="${episodeUrl}" data-key="${c.key}"><i class="fas fa-trash"></i></button>` : ''}
                     </div>`).join('');
-                document.querySelectorAll('.delete-comment-btn').forEach(btn => {
-                    btn.addEventListener('click', () => DB.deleteComment(animeUrl, episodeUrl, btn.dataset.key));
-                });
-            },
+            }
         };
     })();
 
-    // --- 8. EVENT LISTENERS & VIEW CONTROLLER ---
-    function attachEventListeners(viewName, params = {}) {
-        if (viewName === 'home') {
-            mainContent.querySelectorAll('.anime-card, .popular-item, .trending-card').forEach(card => {
-                card.addEventListener('click', () => switchView('episode', { url: card.dataset.url }));
-            });
-        }
-        if (viewName === 'history' || viewName === 'subscribe') {
-             mainContent.querySelectorAll('.anime-card').forEach(card => {
-                card.addEventListener('click', () => switchView('episode', { url: card.dataset.url }));
-            });
-        }
-        if (viewName === 'account') {
-            document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
-        }
-        if (viewName === 'episode') {
-            document.querySelector('.back-button').addEventListener('click', () => switchView('home'));
-            document.querySelectorAll('.episode-item').forEach(item => {
-                item.addEventListener('click', () => switchView('watch', { url: item.dataset.url }));
-            });
-            document.getElementById('subscribe-button').addEventListener('click', () => {
-                DB.toggleSubscription({ title: currentAnimeData.title, poster: currentAnimeData.poster, url: currentAnimeData.url });
-            });
-        }
-        if (viewName === 'watch') {
-            document.querySelector('.back-button').addEventListener('click', () => switchView('episode', { url: currentAnimeData.url }));
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                if(!btn.disabled) btn.addEventListener('click', () => switchView('watch', { url: btn.dataset.url }));
-            });
-            document.querySelectorAll('#episode-list-watch .episode-item').forEach(item => {
-                item.addEventListener('click', () => switchView('watch', { url: item.dataset.url }));
-            });
-            const commentInput = document.getElementById('comment-input');
-            const commentSubmitBtn = document.getElementById('comment-submit-btn');
-            commentInput.addEventListener('input', () => commentSubmitBtn.disabled = commentInput.value.trim() === '');
-            commentSubmitBtn.addEventListener('click', () => {
-                DB.submitComment(currentAnimeData.url, params.url, commentInput.value);
-                commentInput.value = '';
-                commentSubmitBtn.disabled = true;
-            });
-        }
-    }
+// === BAGIAN 2 DARI 3 SELESAI ===
+// === BAGIAN 3 DARI 3 DIMULAI ===
 
+    // --- 8. VIEW CONTROLLER & EVENT LISTENERS ---
     async function switchView(viewName, params = {}) {
         showLoading(true);
         activeListeners.forEach(l => l.ref.off('value', l.callback));
@@ -271,11 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     UI.render('home');
                     const homeData = await API.getHome();
                     UI.renderHomepage(homeData);
-                    gsap.registerPlugin(ScrollTrigger);
-                    gsap.to(".hero-bg", { scrollTrigger: { trigger: ".hero-section", start: "top top", end: "bottom top", scrub: true }, y: 100 });
-                    ScrollTrigger.batch(".content-section .anime-card, .content-section .popular-item, .trending-card", {
-                        start: "top 90%", onEnter: batch => gsap.to(batch, { opacity: 1, y: 0, stagger: 0.05, ease: "power2.out" }),
-                    });
+                    initGsapAnimations();
                     break;
                 case 'subscribe':
                     UI.render('subscribe');
@@ -286,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     DB.listenToHistory(UI.renderHistory);
                     break;
                 case 'account':
-                    UI.render('account');
+                    UI.render('account', currentUser);
                     break;
                 case 'episode':
                     const episodeData = await API.getEpisodes(params.url);
@@ -294,28 +276,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     UI.render('episode', currentAnimeData);
                     DB.listenToSingleSubscription(params.url, snapshot => {
                         const subBtn = document.getElementById('subscribe-button');
-                        if (snapshot.exists()) {
-                            subBtn.innerHTML = '<i class="fas fa-check"></i> Subscribed';
-                            subBtn.classList.add('active');
-                        } else {
-                            subBtn.innerHTML = '<i class="fas fa-plus"></i> Subscribe';
-                            subBtn.classList.remove('active');
+                        if (subBtn) {
+                            if (snapshot.exists()) {
+                                subBtn.innerHTML = '<i class="fas fa-check"></i> Subscribed';
+                                subBtn.classList.add('active');
+                            } else {
+                                subBtn.innerHTML = '<i class="fas fa-plus"></i> Subscribe';
+                                subBtn.classList.remove('active');
+                            }
                         }
                     });
                     break;
                 case 'watch':
                     const watchData = await API.getWatch(params.url);
                     const currentEp = currentAnimeData.episodes.find(ep => ep.url === params.url);
-                    UI.render('watch', { ...watchData, episodeTitle: currentEp.title.replace(/Subtitle Indonesia|Download/gi, '').trim() });
-                    document.getElementById('episode-list-watch').innerHTML = currentAnimeData.episodes.map(ep => `<div class="episode-item" data-url="${ep.url}">${ep.title.replace(/Subtitle Indonesia|Download/gi, '').trim()}</div>`).join('');
+                    UI.render('watch', { ...watchData, episodeTitle: `Episode ${currentEp.title.match(/\d+/)}` });
+                    document.getElementById('episode-list-watch').innerHTML = currentAnimeData.episodes.map(ep => `<div class="episode-item" data-url="${ep.url}">Eps ${ep.title.match(/\d+/)}</div>`).join('');
                     DB.addToHistory({ title: currentAnimeData.title, poster: currentAnimeData.poster, url: currentAnimeData.url });
                     DB.listenToComments(currentAnimeData.url, params.url, (snapshot) => UI.renderComments(snapshot, currentAnimeData.url, params.url));
                     break;
             }
-            attachEventListeners(viewName, params); // Attach listeners after content is rendered
         } catch(error) {
             console.error("Error loading view:", viewName, error);
-            mainContent.innerHTML = UI.createEmptyState("Gagal memuat konten. Coba lagi nanti.");
+            mainContent.innerHTML = UI.render('history'); // Fallback
         } finally {
             showLoading(false);
         }
@@ -333,10 +316,61 @@ document.addEventListener('DOMContentLoaded', () => {
             appContainer.style.display = 'none';
         }
     });
-    document.querySelectorAll('.nav-button').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const button = e.target.closest('.nav-button');
-            switchView(button.dataset.view);
-        });
+
+    // --- EVENT LISTENER UTAMA (EVENT DELEGATION) ---
+    document.getElementById('login-btn').addEventListener('click', () => auth.signInWithPopup(provider));
+    
+    document.getElementById('bottom-nav').addEventListener('click', (e) => {
+        const navButton = e.target.closest('.nav-button');
+        if (navButton) switchView(navButton.dataset.view);
     });
+
+    mainContent.addEventListener('click', (e) => {
+        const target = e.target;
+        const animeCard = target.closest('.anime-card, .trending-card');
+        const episodeItem = target.closest('.episode-item');
+        const backButton = target.closest('.back-button');
+        const logoutButton = target.closest('#logout-btn');
+        const subscribeButton = target.closest('#subscribe-button');
+        const navBtn = target.closest('.nav-btn');
+        const submitCommentBtn = target.closest('#comment-submit-btn');
+        const deleteCommentBtn = target.closest('.delete-comment-btn');
+
+        if (animeCard) switchView('episode', { url: animeCard.dataset.url });
+        if (episodeItem) switchView('watch', { url: episodeItem.dataset.url });
+        if (backButton) switchView('home');
+        if (logoutButton) auth.signOut();
+        if (subscribeButton) DB.toggleSubscription({ title: currentAnimeData.title, poster: currentAnimeData.poster, url: currentAnimeData.url });
+        if (navBtn && !navBtn.disabled) switchView('watch', { url: navBtn.dataset.url });
+        if (submitCommentBtn && !submitCommentBtn.disabled) {
+            const commentInput = document.getElementById('comment-input');
+            DB.submitComment(currentAnimeData.url, currentAnimeData.episodes.find(ep => document.getElementById('video-player').src.includes(ep.url)).url, commentInput.value);
+            commentInput.value = '';
+            submitCommentBtn.disabled = true;
+        }
+        if (deleteCommentBtn) {
+            const { animeUrl, episodeUrl, key } = deleteCommentBtn.dataset;
+            DB.deleteComment(animeUrl, episodeUrl, key);
+        }
+    });
+    
+    mainContent.addEventListener('input', (e) => {
+        if (e.target.id === 'comment-input') {
+            document.getElementById('comment-submit-btn').disabled = e.target.value.trim() === '';
+        }
+    });
+
+    function initGsapAnimations() {
+        gsap.registerPlugin(ScrollTrigger);
+        gsap.to(".hero-bg", {
+            scrollTrigger: { trigger: ".hero-section", start: "top top", end: "bottom top", scrub: true },
+            y: 100
+        });
+        ScrollTrigger.batch(".content-section .anime-card, .trending-card", {
+            start: "top 90%",
+            onEnter: batch => gsap.to(batch, { opacity: 1, y: 0, stagger: 0.05, ease: "power2.out" }),
+        });
+        ScrollTrigger.refresh();
+    }
 });
+// === BAGIAN 3 DARI 3 SELESAI ===
