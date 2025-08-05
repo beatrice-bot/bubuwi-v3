@@ -13,6 +13,19 @@ async function scrapeHomepage() {
     const { data } = await axios.get(BASE_URL);
     const $ = cheerio.load(data);
     const slider = [], latest = [], popularWeekly = [];
+    let trending = {};
+
+    // Scrape Trending
+    const trendingEl = $('.trending .tdb a');
+    if (trendingEl.length) {
+        const style = $('.imgxb').attr('style');
+        const poster = style ? style.match(/url\('(.*?)'\)/)[1] : '';
+        trending = {
+            title: trendingEl.find('.numb b').text().trim(),
+            url: trendingEl.attr('href'),
+            poster: poster
+        };
+    }
 
     $('.slidtop .loop .slide-item').each((i, el) => {
         const item = $(el).find('.poster a');
@@ -33,7 +46,7 @@ async function scrapeHomepage() {
             popularWeekly.push({ rank: $(el).find('.ctr').text().trim(), title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src') });
         }
     });
-    return { slider, latest, popularWeekly };
+    return { slider, trending, latest, popularWeekly };
 }
 
 async function scrapeEpisodes(url) {
