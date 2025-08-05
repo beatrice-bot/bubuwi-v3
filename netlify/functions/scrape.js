@@ -1,6 +1,5 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-
 const BASE_URL = 'https://samehadaku.li';
 
 const createResponse = (body, statusCode = 200) => ({
@@ -12,10 +11,9 @@ const createResponse = (body, statusCode = 200) => ({
 async function scrapeHomepage() {
     const { data } = await axios.get(BASE_URL);
     const $ = cheerio.load(data);
-    const slider = [], latest = [], popularWeekly = [];
+    const latest = [];
     let trending = {};
 
-    // Scrape Trending
     const trendingEl = $('.trending .tdb a');
     if (trendingEl.length) {
         const style = $('.imgxb').attr('style');
@@ -27,26 +25,13 @@ async function scrapeHomepage() {
         };
     }
 
-    $('.slidtop .loop .slide-item').each((i, el) => {
-        const item = $(el).find('.poster a');
-        const title = $(el).find('.info-left .title a').text().trim();
-        if (title && item.attr('href') && item.find('img').attr('src')) {
-            slider.push({ title, url: item.attr('href'), poster: item.find('img').attr('src') });
-        }
-    });
     $('.listupd.normal .bs').each((i, el) => {
         const item = $(el).find('.bsx a');
         if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
             latest.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src'), episode: item.find('.epx').text().trim() });
         }
     });
-    $('#wpop-items .wpop-weekly ul li').each((i, el) => {
-        const item = $(el).find('a.series');
-        if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
-            popularWeekly.push({ rank: $(el).find('.ctr').text().trim(), title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src') });
-        }
-    });
-    return { slider, trending, latest, popularWeekly };
+    return { trending, latest };
 }
 
 async function scrapeEpisodes(url) {
@@ -78,11 +63,12 @@ async function scrapeWatch(url) {
 }
 
 exports.handler = async (event) => {
-  const { target, url } = event.queryStringParameters;
+  const { target, url, query } = event.queryStringParameters;
   try {
     if (target === 'home') return createResponse(await scrapeHomepage());
     if (target === 'episodes') return createResponse(await scrapeEpisodes(url));
     if (target === 'watch') return createResponse(await scrapeWatch(url));
+    // Logika search bisa ditambahkan di sini jika diperlukan
     return createResponse({ error: 'Invalid target' }, 400);
   } catch (error) {
     console.error(`Scraping Error on target ${target}:`, error.message);
