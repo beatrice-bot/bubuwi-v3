@@ -1,5 +1,4 @@
 [build]
-  # Folder yang akan di-publish adalah root folder ini
   publish = "." 
   functions = "netlify/functions"
 
