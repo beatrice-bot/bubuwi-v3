@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
         apiKey: "AIzaSyD8HjXwynugy5q-_KlqLajw27PDgUJ4QUk",
         authDomain: "bubuwi-pro.firebaseapp.com",
         projectId: "bubuwi-pro",
-        databaseURL: "https://bubuwi-pro-default-rtdb.asia-southeast1.firebasedata.app",
+        databaseURL: "https://bubuwi-pro-default-rtdb.asia-southeast1.firebasedatabase.app",
         storageBucket: "bubuwi-pro.appspot.com",
         messagingSenderId: "741891119074",
         appId: "1:741891119074:web:93cc65fb2cd94033aa4bbb"
@@ -18,11 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.database();
     const provider = new firebase.auth.GoogleAuthProvider();
 
+    // --- KODE PERBAIKAN BUG TOMBOL LOGIN ---
+    document.getElementById('login-btn').addEventListener('click', () => auth.signInWithPopup(provider).catch(console.error));
+
+
     // --- 2. STATE APLIKASI ---
     let currentUser = null;
     let activeListeners = [];
-    let currentAnimeData = {}; // Menyimpan data anime (termasuk list episode) saat dibuka
-    let currentView = 'login';
+    let currentAnimeData = {};
 
     // --- 3. ELEMEN UTAMA ---
     const mainContent = document.getElementById('main-content');
@@ -38,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 5. MODUL API (MENGAMBIL DATA DARI SCRAPER) ---
     const API = (() => {
-        const CACHE_DURATION = 15 * 60 * 1000; // Cache 15 menit
+        const CACHE_DURATION = 15 * 60 * 1000;
         
         async function fetchData(target, params = {}) {
             const query = new URLSearchParams({ target, ...params }).toString();
@@ -47,9 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cached = sessionStorage.getItem(cacheKey);
             if (cached) {
                 const { timestamp, data } = JSON.parse(cached);
-                if (Date.now() - timestamp < CACHE_DURATION) {
-                    return data;
-                }
+                if (Date.now() - timestamp < CACHE_DURATION) return data;
             }
             
             const response = await fetch(`/.netlify/functions/scrape?${query}`);
@@ -67,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 
 // === BAGIAN 1 DARI 3 SELESAI ===
-// === BAGIAN 2 DARI 3 DIMULAI ===
+                          // === BAGIAN 2 DARI 3 DIMULAI ===
 
     // --- 6. MODUL DATABASE (INTERAKSI DENGAN FIREBASE) ---
     const DB = (() => {
@@ -145,21 +146,20 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         const createSkeletonCards = (count = 6) => {
-            let skeletons = '';
-            for (let i = 0; i < count; i++) {
-                skeletons += '<div class="anime-card skeleton skeleton-card"></div>';
-            }
-            return skeletons;
+            return Array(count).fill('<div class="anime-card skeleton skeleton-card"></div>').join('');
         };
         const createEmptyState = (message) => `<div class="card empty-state-card">${message}</div>`;
 
-        // KUMPULAN TEMPLATE UNTUK SETIAP HALAMAN
         const templates = {
             home: () => `
                 <div class="hero-section">
                     <img src="https://i.imgur.com/vH12J6f.jpg" class="hero-bg" alt="Hero Background">
                     <img src="https://i.imgur.com/9uK2OPw.png" class="hero-logo" alt="Bubuwi Logo">
                     <h2 class="hero-title">Temukan Anime Favoritmu</h2>
+                </div>
+                <div class="search-section card">
+                    <input type="text" id="search-input" placeholder="Cari anime...">
+                    <button id="search-button"><i class="fas fa-search"></i></button>
                 </div>
                 <div class="content-section" id="latest-release-section">
                     <h3><i class="fas fa-fire"></i> Baru Rilis</h3>
@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // === BAGIAN 2 DARI 3 SELESAI ===
 // === BAGIAN 3 DARI 3 DIMULAI ===
-
+        
         return {
             render: (view, data = {}) => {
                 mainContent.innerHTML = templates[view](data);
@@ -303,8 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
         activeListeners.forEach(l => l.ref.off('value', l.callback));
         activeListeners = [];
         
-        mainContent.innerHTML = ''; // Kosongkan konten utama
-        currentView = viewName;
+        mainContent.innerHTML = '';
+        
+        document.querySelectorAll('.nav-button').forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
         
         try {
             switch (viewName) {
@@ -312,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     UI.render('home');
                     const homeData = await API.getHome();
                     UI.renderHomepage(homeData);
-                    initGsapAnimations(); // Jalankan animasi setelah konten dirender
+                    initGsapAnimations();
                     break;
 
                 case 'subscribe':
@@ -332,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 case 'episode':
                     const episodeData = await API.getEpisodes(params.url);
-                    currentAnimeData = { ...episodeData, url: params.url }; // Simpan data anime saat ini
+                    currentAnimeData = { ...episodeData, url: params.url };
                     UI.render('episode', currentAnimeData);
                     document.querySelector('.back-button').addEventListener('click', () => switchView('home'));
                     document.querySelectorAll('.episode-item').forEach(item => {
@@ -377,10 +378,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch(error) {
             console.error("Error loading view:", viewName, error);
-            mainContent.innerHTML = createEmptyState("Gagal memuat konten. Coba lagi nanti.");
+            mainContent.innerHTML = UI.createEmptyState("Gagal memuat konten. Coba lagi nanti.");
         } finally {
             showLoading(false);
-            document.querySelectorAll('.nav-button').forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
         }
     }
 
@@ -390,19 +390,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (user) {
             loginPage.style.display = 'none';
             appContainer.style.display = 'flex';
-            switchView('home'); // Tampilkan halaman utama setelah login
+            switchView('home');
         } else {
             loginPage.style.display = 'flex';
             appContainer.style.display = 'none';
         }
     });
 
-    // Event listener untuk tombol navigasi utama
-    document.querySelectorAll('.nav-button').forEach(btn => {
-        btn.addEventListener('click', () => switchView(btn.dataset.view));
-    });
-
-    // Inisialisasi animasi GSAP
     function initGsapAnimations() {
         gsap.registerPlugin(ScrollTrigger);
         gsap.to(".hero-bg", {
@@ -416,5 +410,4 @@ document.addEventListener('DOMContentLoaded', () => {
         ScrollTrigger.refresh();
     }
 });
-
 // === BAGIAN 3 DARI 3 SELESAI ===
