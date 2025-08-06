@@ -20,7 +20,7 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     font-family: var(--font-family);
-    overscroll-behavior-y: contain; /* Mencegah pull-to-refresh di Android */
+    overscroll-behavior-y: contain;
 }
 
 .hidden {
@@ -29,32 +29,24 @@ body {
 
 /* ---- BAGIAN 2: ANIMASI MELAYANG (FLOATING) ---- */
 @keyframes float-animation {
-    0% {
-        transform: translateY(0px);
-        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.4);
-    }
-    50% {
-        transform: translateY(-10px);
-        box-shadow: 0px 15px 30px rgba(0, 0, 0, 0.6);
-    }
-    100% {
-        transform: translateY(0px);
-        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.4);
-    }
+    0% { transform: translateY(0px); box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.4); }
+    50% { transform: translateY(-8px); box-shadow: 0px 15px 30px rgba(0, 0, 0, 0.6); }
+    100% { transform: translateY(0px); box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.4); }
 }
 
 .floating-card {
     animation: float-animation 6s ease-in-out infinite;
 }
 
-/* ---- BAGIAN 3: LAYAR LOGIN ---- */
-.full-screen {
+/* ---- BAGIAN 3: LAYAR LOGIN & LOADER ---- */
+.full-screen, .loading-screen {
     width: 100%;
     height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 20px;
+    flex-direction: column;
 }
 
 .login-card {
@@ -64,200 +56,59 @@ body {
     text-align: center;
     box-shadow: var(--card-shadow);
 }
-
-.login-logo {
-    width: 80px;
-    height: 80px;
+/* ... (Gaya lainnya untuk login screen tetap sama) ... */
+.loader {
+    border: 4px solid #333;
+    border-top: 4px solid var(--primary-color);
     border-radius: 50%;
-    border: 3px solid var(--primary-color);
-    margin-bottom: 20px;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px auto;
 }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-.login-card h1 {
-    font-size: 22px;
-    margin-bottom: 8px;
-}
 
-.login-card p {
-    color: var(--text-secondary);
-    margin-bottom: 25px;
-}
+/* ---- BAGIAN 4: STRUKTUR APLIKASI UTAMA & NAVIGASI ---- */
+#app-container { padding-bottom: 80px; }
+main#app { padding: 15px; }
+/* ... (Gaya untuk navigasi bawah tetap sama) ... */
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 70px; background-color: rgba(30, 30, 30, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.nav-link { display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: var(--text-secondary); flex-grow: 1; transition: color 0.3s; }
+.nav-link.active { color: var(--primary-color); }
+.nav-link svg { width: 28px; height: 28px; margin-bottom: 2px; }
+.nav-link span { font-size: 12px; font-weight: 500; }
 
-#loginBtn {
-    background-color: #4285F4;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    transition: background-color 0.3s;
-}
+/* ---- BAGIAN 5: KARTU-KARTU & BINGKAI ---- */
+.section-title { font-size: 22px; font-weight: 600; margin-bottom: 15px; padding-left: 5px; }
+.card { background-color: var(--surface-color); border-radius: var(--border-radius); padding: 20px; margin-bottom: 20px; box-shadow: var(--card-shadow); overflow: hidden; position: relative; }
+.img-frame { border-radius: 12px; border: 3px solid rgba(255, 255, 255, 0.1); overflow: hidden; display: inline-block; line-height: 0; }
 
-#loginBtn:hover {
-    background-color: #357ae8;
-}
-
-#loginBtn img {
-    width: 20px;
-    height: 20px;
-    background-color: white;
-    border-radius: 50%;
-    padding: 2px;
-}
-
-/* ---- BAGIAN 4: STRUKTUR APLIKASI UTAMA ---- */
-#app-container {
-    padding-bottom: 80px; /* Memberi ruang untuk nav di bawah */
-}
-
-main#app {
-    padding: 20px;
-}
-
-/* ---- BAGIAN 5: NAVIGASI BAWAH ---- */
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 70px;
-    background-color: rgba(30, 30, 30, 0.8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.nav-link {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    color: var(--text-secondary);
-    flex-grow: 1;
-    transition: color 0.3s;
-}
-
-.nav-link.active {
-    color: var(--primary-color);
-}
-
-.nav-link svg {
-    width: 28px;
-    height: 28px;
-    margin-bottom: 2px;
-}
-
-.nav-link span {
-    font-size: 12px;
-    font-weight: 500;
-}
-
-/* ---- BAGIAN 6: KARTU-KARTU & BINGKAI ---- */
-.section-title {
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 20px;
-}
-
-.card {
-    background-color: var(--surface-color);
-    border-radius: var(--border-radius);
-    padding: 20px;
-    margin-bottom: 25px;
-    box-shadow: var(--card-shadow);
-    overflow: hidden;
-    position: relative;
-}
-
-/* Bingkai untuk gambar */
-.img-frame {
-    border-radius: 12px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
-    overflow: hidden;
-    display: inline-block; /* Agar border pas dengan gambar */
-    line-height: 0; /* Menghilangkan spasi bawah gambar */
-}
-
-/* Kartu Hero di Halaman Utama */
-.hero-card {
-    text-align: center;
-    padding: 0;
-}
-
-.hero-card .hero-bg {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 1;
-    opacity: 0.3;
-}
-
-.hero-content {
-    position: relative;
-    z-index: 2;
-    padding: 30px;
-    background: linear-gradient(to top, rgba(30,30,30,1) 0%, rgba(30,30,30,0.5) 50%, rgba(30,30,30,0) 100%);
-}
-
-.hero-logo {
-    width: 70px;
-    height: 70px;
-    margin: 0 auto 10px auto;
-}
-
-.hero-logo img {
-    width: 100%;
-}
-
-.hero-title {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-shadow: 0 0 10px rgba(0,0,0,0.7);
-}
+/* Kartu Hero */
+.hero-card { text-align: center; padding: 0; }
+.hero-card .hero-bg { width: 100%; height: 200px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1; opacity: 0.3; }
+.hero-content { position: relative; z-index: 2; padding: 30px; background: linear-gradient(to top, rgba(30,30,30,1) 0%, rgba(30,30,30,0.5) 50%, rgba(30,30,30,0) 100%); }
+.hero-logo { width: 70px; height: 70px; margin: 0 auto 10px auto; }
+.hero-logo img { width: 100%; }
+.hero-title { font-size: 28px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0,0,0,0.7); }
 
 /* Kartu Pencarian */
-.search-card form {
-    display: flex;
-    gap: 10px;
-}
+.search-card form { display: flex; gap: 10px; }
+.search-card input { flex-grow: 1; background-color: #333; border: 1px solid #444; color: var(--text-color); padding: 12px; border-radius: 8px; font-size: 16px; }
+.search-card button { background-color: var(--primary-color); border: none; color: white; padding: 0 20px; border-radius: 8px; cursor: pointer; }
 
-.search-card input {
-    flex-grow: 1;
-    background-color: #333;
-    border: 1px solid #444;
-    color: var(--text-color);
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 16px;
-}
-
-.search-card button {
-    background-color: var(--primary-color);
-    border: none;
-    color: white;
-    padding: 0 20px;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-/* Kartu Anime (Template) */
+/* ---- BAGIAN 6: GRID ANIME & KARTU ANIME ---- */
 .anime-grid {
     display: grid;
+    /* Secara default, kartu akan besar */
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 20px;
+}
+
+/* PERBAIKAN: Style khusus untuk grid rilis baru (3 kolom) */
+.new-releases-grid {
+    grid-template-columns: repeat(3, 1fr); /* 3 kolom dengan lebar sama */
+    gap: 15px; /* Jarak antar item */
 }
 
 .anime-card {
@@ -267,16 +118,19 @@ main#app {
     color: var(--text-color);
     overflow: hidden;
     transition: transform 0.3s;
+    cursor: pointer;
 }
-
-.anime-card:active {
-    transform: scale(0.95);
-}
+.anime-card:active { transform: scale(0.95); }
 
 .anime-poster {
     width: 100%;
     height: 220px;
     object-fit: cover;
+}
+
+/* PERBAIKAN: Sesuaikan poster untuk grid 3 kolom */
+.new-releases-grid .anime-poster {
+    height: 140px; /* Buat poster lebih pendek */
 }
 
 .anime-title {
@@ -286,98 +140,27 @@ main#app {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-.anime-episode {
-    font-size: 12px;
-    color: var(--text-secondary);
-    padding: 0 10px 10px 10px;
+/* PERBAIKAN: Font lebih kecil untuk grid 3 kolom */
+.new-releases-grid .anime-title {
+    font-size: 13px;
+    padding: 8px;
 }
 
-/* ---- BAGIAN 7: HALAMAN AKUN ---- */
-.user-card {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
+.anime-episode { font-size: 12px; color: var(--text-secondary); padding: 0 10px 10px 10px; }
 
-.user-card .profile-pic {
-    width: 60px;
-    height: 60px;
-}
-
-.user-card .profile-pic img {
-    width: 100%;
-    border-radius: 50%;
-}
-
-.user-info .username {
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.user-info .email {
-    font-size: 14px;
-    color: var(--text-secondary);
-}
-
-/* Kartu Kontak */
-.contact-card {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 15px;
-    text-decoration: none;
-    color: var(--text-color);
-    transition: background-color 0.3s;
-}
-.contact-card:active {
-    background-color: #333;
-}
-
-.contact-logo-wrapper {
-    width: 40px;
-    height: 40px;
-}
-
-.contact-logo-wrapper img {
-    width: 100%;
-    border-radius: 8px;
-}
-
-.contact-username {
-    font-size: 16px;
-    font-weight: 500;
-}
-
-/* Tombol Logout */
-#logoutBtn-main {
-    width: 100%;
-    background-color: #B00020;
-    border: none;
-    padding: 15px;
-    font-size: 16px;
-    font-weight: 600;
-    border-radius: var(--border-radius);
-    color: white;
-    cursor: pointer;
-    margin-top: 20px;
-}
-
-/* Pesan Kosong */
-.empty-state {
-    text-align: center;
-    padding: 50px 20px;
-    color: var(--text-secondary);
-}
-
-.empty-state-icon {
-    font-size: 60px;
-    margin-bottom: 20px;
-}
-
-.empty-state-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-color);
-    margin-bottom: 10px;
-}
+/* ---- BAGIAN 7: HALAMAN AKUN & PESAN KOSONG ---- */
+/* ... (Gaya untuk halaman akun dan empty-state tetap sama) ... */
+.user-card { display: flex; align-items: center; gap: 15px; }
+.user-card .profile-pic { width: 60px; height: 60px; }
+.user-card .profile-pic img { width: 100%; border-radius: 50%; }
+.user-info .username { font-size: 18px; font-weight: 600; }
+.user-info .email { font-size: 14px; color: var(--text-secondary); }
+.contact-card { display: flex; align-items: center; gap: 15px; padding: 15px; text-decoration: none; color: var(--text-color); transition: background-color 0.3s; }
+.contact-card:active { background-color: #333; }
+.contact-logo-wrapper { width: 40px; height: 40px; }
+.contact-logo-wrapper img { width: 100%; border-radius: 8px; }
+.contact-username { font-size: 16px; font-weight: 500; }
+#logoutBtn-main { width: 100%; background-color: #B00020; border: none; padding: 15px; font-size: 16px; font-weight: 600; border-radius: var(--border-radius); color: white; cursor: pointer; margin-top: 20px; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+.empty-state .empty-state-icon { font-size: 50px; margin-bottom: 15px; }
+.empty-state .empty-state-title { font-size: 18px; font-weight: 600; color: var(--text-color); margin-bottom: 8px; }
