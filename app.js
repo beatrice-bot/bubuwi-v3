@@ -1,17 +1,18 @@
 // ==========================================================
 // BAGIAN 1: INISIALISASI & IMPORT
 // ==========================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // GANTI DENGAN KONFIGURASI FIREBASE ANDA SENDIRI
 const firebaseConfig = {
-    apiKey: "ISI_DENGAN_API_KEY_ANDA",
-    authDomain: "ISI_DENGAN_AUTH_DOMAIN_ANDA",
-    projectId: "ISI_DENGAN_PROJECT_ID_ANDA",
-    storageBucket: "ISI_DENGAN_STORAGE_BUCKET_ANDA",
-    messagingSenderId: "ISI_DENGAN_MESSAGING_SENDER_ID_ANDA",
-    appId: "ISI_DENGAN_APP_ID_ANDA"
+    apiKey: "AIzaSyD8HjXwynugy5q-_KlqLajw27PDgUJ4QUk",
+    authDomain: "bubuwi-pro.firebaseapp.com",
+    projectId: "bubuwi-pro",
+    storageBucket: "bubuwi-pro.firebasestorage.app",
+    messagingSenderId: "741891119074",
+    appId: "1:741891119074:web:93cc65fb2cd94033aa4bbb"
 };
 // Inisialisasi Firebase
 const app = initializeApp(firebaseConfig);
@@ -20,31 +21,48 @@ const db = getDatabase(app);
 
 
 // ==========================================================
-// BAGIAN 2: SELEKTOR DOM (Mengambil elemen HTML)
+// BAGIAN 2: SELEKTOR DOM
 // ==========================================================
 const loginScreen = document.getElementById('login-screen');
 const loginBtn = document.getElementById('loginBtn');
 const appContainer = document.getElementById('app-container');
 const appElement = document.getElementById('app');
-const navLinks = document.querySelectorAll('.nav-link');
+const bottomNavElement = document.querySelector('.bottom-nav');
+
 
 // ==========================================================
-// BAGIAN 3: MANAJEMEN DATA (LocalStorage)
+// BAGIAN 3: MANAJEMEN DATA LOCALSTORAGE
 // ==========================================================
+// Objek ini akan mengelola semua data yang disimpan di perangkat pengguna
 const LocalDataManager = {
-    getSubscriptions: () => JSON.parse(localStorage.getItem('bubuwi_subscriptions')) || [],
+    // Mengambil daftar langganan dari localStorage
+    getSubscriptions: () => {
+        return JSON.parse(localStorage.getItem('bubuwi_subscriptions')) || [];
+    },
+    // Menambah anime baru ke daftar langganan
     addSubscription: (anime) => {
         const subs = LocalDataManager.getSubscriptions();
+        // Cek agar tidak ada judul yang sama (duplikat)
         if (!subs.some(s => s.title === anime.title)) {
             subs.push(anime);
             localStorage.setItem('bubuwi_subscriptions', JSON.stringify(subs));
+            alert(`${anime.title} telah ditambahkan ke langganan!`);
+        } else {
+            alert(`${anime.title} sudah ada di daftar langganan.`);
         }
     },
-    getHistory: () => JSON.parse(localStorage.getItem('bubuwi_history')) || [],
+    // Mengambil riwayat tontonan
+    getHistory: () => {
+        return JSON.parse(localStorage.getItem('bubuwi_history')) || [];
+    },
+    // Menambah atau memperbarui riwayat tontonan
     addHistory: (anime) => {
         let history = LocalDataManager.getHistory();
+        // Hapus entri lama jika judulnya sama, agar hanya ada yang terbaru
         history = history.filter(h => h.title !== anime.title);
+        // Tambahkan yang baru di awal array (paling atas)
         history.unshift(anime);
+        // Batasi riwayat, misal 20 item terakhir untuk menghemat ruang
         if (history.length > 20) {
             history.pop();
         }
@@ -54,11 +72,17 @@ const LocalDataManager = {
 // ==========================================================
 // BAGIAN 4: AUTENTIKASI FIREBASE
 // ==========================================================
+// Variabel untuk menyimpan data pengguna yang sedang login
 let currentUser = null;
 
+// Fungsi ini adalah pusat kendali aplikasi.
+// Ia akan berjalan otomatis saat halaman dimuat dan setiap kali status login berubah.
 onAuthStateChanged(auth, (user) => {
     if (user) {
+        // --- KONDISI SAAT PENGGUNA BERHASIL LOGIN ---
         currentUser = user;
+
+        // Simpan atau perbarui info pengguna di Firebase Database (opsional tapi bagus)
         const userRef = ref(db, 'users/' + user.uid);
         set(userRef, {
             displayName: user.displayName,
@@ -66,48 +90,73 @@ onAuthStateChanged(auth, (user) => {
             photoURL: user.photoURL,
             lastLogin: new Date().toISOString()
         });
-
+        
+        // Tampilkan aplikasi utama dan sembunyikan layar login
         loginScreen.classList.add('hidden');
         appContainer.classList.remove('hidden');
+
+        // Arahkan ke halaman yang sesuai (default ke halaman utama)
         navigateTo(window.location.hash || '#/');
 
     } else {
+        // --- KONDISI SAAT PENGGUNA LOGOUT ATAU BELUM LOGIN ---
         currentUser = null;
+
+        // Tampilkan layar login dan sembunyikan aplikasi utama
         loginScreen.classList.remove('hidden');
         appContainer.classList.add('hidden');
     }
 });
 
+// Event listener untuk tombol login Google
 loginBtn.addEventListener('click', () => {
     const provider = new GoogleAuthProvider();
     signInWithPopup(auth, provider).catch(error => console.error("Login Gagal:", error));
 });
 
+// Fungsi untuk menangani logout
 function handleLogout() {
     if (confirm("Anda yakin ingin logout?")) {
         signOut(auth).catch(error => console.error("Logout Gagal:", error));
     }
 }
+// Membuat fungsi logout bisa diakses secara global (untuk tombol di HTML)
 window.handleLogout = handleLogout;
 
+
 // ==========================================================
-// BAGIAN 5: ROUTER SEDERHANA (Navigasi Halaman)
+// BAGIAN 5: ROUTER & NAVIGASI
 // ==========================================================
+
+// Fungsi untuk menggambar ulang navigasi bawah dan menandai halaman aktif
+const renderNav = (activePage) => {
+    bottomNavElement.innerHTML = `
+        <a href="#/" data-page="utama" class="nav-link ${activePage === 'utama' ? 'active' : ''}">
+            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span>Utama</span>
+        </a>
+        <a href="#/subscribe" data-page="subscribe" class="nav-link ${activePage === 'subscribe' ? 'active' : ''}">
+            <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <span>Subscribe</span>
+        </a>
+        <a href="#/akun" data-page="akun" class="nav-link ${activePage === 'akun' ? 'active' : ''}">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span>Akun</span>
+        </a>
+    `;
+};
+
+// Fungsi utama untuk navigasi halaman
 function navigateTo(hash) {
     const page = hash.substring(2) || 'utama';
+    
+    // Gambar ulang navigasi dan tandai yang aktif
+    renderNav(page);
 
-    navLinks.forEach(link => {
-        link.classList.remove('active');
-        if (link.dataset.page === page) {
-            link.classList.add('active');
-        }
-    });
     // Scroll ke atas setiap pindah halaman
     window.scrollTo(0, 0);
 
-    // Hapus event listener lama sebelum merender halaman baru untuk mencegah kebocoran memori
-    appElement.innerHTML = '';
-
+    // Render halaman yang sesuai berdasarkan 'page'
     switch(page) {
         case 'utama':
             renderHalamanUtama();
@@ -119,49 +168,78 @@ function navigateTo(hash) {
             renderHalamanAkun();
             break;
         default:
-            renderHalamanUtama();
+            renderHalamanUtama(); // Halaman default jika hash tidak dikenali
             break;
     }
 }
 
-navLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
+// Event listener untuk tombol navigasi bawah
+bottomNavElement.addEventListener('click', (e) => {
+    const navLink = e.target.closest('.nav-link');
+    if (navLink) {
         e.preventDefault();
-        window.location.hash = link.getAttribute('href');
-    });
+        // Ubah hash di URL untuk memicu 'hashchange'
+        window.location.hash = navLink.getAttribute('href');
+    }
 });
 
+// Dengarkan perubahan pada hash di URL (misal: saat menekan tombol back/forward browser)
 window.addEventListener('hashchange', () => navigateTo(window.location.hash));
 // ==========================================================
 // BAGIAN 6: FUNGSI RENDER (Menggambar setiap Halaman)
 // ==========================================================
+
+/**
+ * Fungsi untuk membuat satu kartu anime dari template HTML.
+ * @param {object} anime - Objek yang berisi info anime (title, poster, episode, link).
+ * @returns {HTMLElement} - Elemen HTML kartu anime yang siap ditampilkan.
+ */
 function createAnimeCard(anime) {
     const template = document.getElementById('anime-card-template');
     const card = template.content.cloneNode(true).firstElementChild;
+
+    // Mengisi data ke dalam elemen kartu
     card.querySelector('.anime-poster').src = anime.poster || 'https://placehold.co/400x600/1e1e1e/white?text=No+Image';
     card.querySelector('.anime-poster').alt = anime.title;
     card.querySelector('.anime-title').textContent = anime.title;
+    
     const episodeElement = card.querySelector('.anime-episode');
     if (anime.episode) {
         episodeElement.textContent = `Terakhir ditonton: ${anime.episode}`;
     } else {
+        // Jika tidak ada info episode, hapus elemennya agar tidak memakan ruang
         episodeElement.remove();
     }
-    // PERBAIKAN: Tambahkan event listener untuk menangani klik
+
+    // Menambahkan event listener agar kartu bisa diklik
     card.addEventListener('click', () => {
-        alert(`Anda mengklik: ${anime.title}\nLink: ${anime.link || 'Tidak ada'}`);
-        // Di sini nantinya akan ada logika untuk pindah ke halaman detail anime
-        // Contoh: LocalDataManager.addHistory(anime);
+        // Untuk sekarang, kita hanya tampilkan alert.
+        // Nanti di sini akan ada logika untuk pindah ke halaman detail anime.
+        alert(`Anda mengklik: ${anime.title}\nLink dari API: ${anime.link || 'Tidak ada'}`);
+        
+        // Contoh menambahkan anime ke riwayat saat diklik
+        if (anime.link) { // Pastikan ada data anime lengkap sebelum disimpan
+            LocalDataManager.addHistory({
+                title: anime.title,
+                poster: anime.poster,
+                link: anime.link,
+                episode: anime.episode || 'Episode terakhir' // Contoh
+            });
+        }
     });
+
     return card;
 }
 
-// 6.1. Render Halaman UTAMA
+
+/**
+ * Fungsi untuk merender seluruh konten Halaman Utama.
+ */
 async function renderHalamanUtama() {
-    // Tampilkan loader dulu
+    // 1. Tampilkan loader dulu agar pengguna tahu ada proses yang berjalan
     appElement.innerHTML = `<div class="loading-screen"><div class="loader"></div><p>Memuat Data...</p></div>`;
 
-    // PERBAIKAN: Definisikan semua string HTML dengan benar
+    // 2. Siapkan semua bagian HTML sebagai string
     const heroHTML = `
         <div class="card hero-card floating-card">
             <img src="https://files.catbox.moe/03g5k9.gif" class="hero-bg" alt="Hero Background">
@@ -174,7 +252,7 @@ async function renderHalamanUtama() {
         </div>`;
 
     const searchHTML = `
-        <div class="card search-card" style="animation-delay: 0.1s;">
+        <div class="card search-card">
             <form id="search-form">
                 <input type="search" id="search-input" placeholder="Cari judul anime...">
                 <button type="submit">
@@ -183,11 +261,13 @@ async function renderHalamanUtama() {
             </form>
         </div>`;
 
+    // 3. Siapkan bagian Riwayat dari localStorage
     const history = LocalDataManager.getHistory();
     let historyHTML = `<h3 class="section-title">Terakhir Ditonton</h3>`;
     if (history.length > 0) {
-        historyHTML += `<div class="anime-grid new-releases-grid">`; // Gunakan grid kecil
+        historyHTML += `<div class="anime-grid small-grid">`;
         history.forEach(anime => {
+            // Kita panggil createAnimeCard untuk setiap item riwayat
             historyHTML += createAnimeCard(anime).outerHTML;
         });
         historyHTML += `</div>`;
@@ -195,10 +275,13 @@ async function renderHalamanUtama() {
         historyHTML += `<p class="empty-state">Belum ada riwayat tontonan.</p>`;
     }
 
+    // 4. Ambil data Rilisan Baru dari API dan siapkan HTML-nya
     let newReleaseHTML = `<h3 class="section-title" style="margin-top: 30px;">Baru Rilis</h3>`;
     try {
         const response = await fetch('/.netlify/functions/scrape');
-        if (!response.ok) throw new Error('Gagal mengambil data rilis baru.');
+        if (!response.ok) {
+            throw new Error(`Gagal mengambil data rilis baru. Status: ${response.status}`);
+        }
         const newReleases = await response.json();
         
         let animeCardsHTML = '';
@@ -207,53 +290,53 @@ async function renderHalamanUtama() {
                 animeCardsHTML += createAnimeCard({
                     poster: anime.thumbnail,
                     title: anime.seriesTitle,
-                    link: anime.link
+                    link: anime.link,
+                    episode: anime.episode
                 }).outerHTML;
             });
-            newReleaseHTML += `<div class="anime-grid new-releases-grid">${animeCardsHTML}</div>`;
+            newReleaseHTML += `<div class="anime-grid small-grid">${animeCardsHTML}</div>`;
         } else {
-            throw new Error('Tidak ada data rilis baru.');
+            throw new Error('API tidak mengembalikan hasil rilis baru.');
         }
-
     } catch (error) {
         console.error("Error fetching new releases:", error);
         newReleaseHTML += `<p class="empty-state">Gagal memuat data rilis baru.</p>`;
     }
     
-    // PERBAIKAN: Gabungkan semua HTML lalu render ke DOM sekaligus
+    // 5. Gabungkan semua HTML yang sudah disiapkan dan render ke DOM sekaligus
     appElement.innerHTML = `
         ${heroHTML}
         ${searchHTML}
-        <div class="card" id="history-section">${historyHTML}</div>
+        <div class="card">${historyHTML}</div>
         <div class="card" id="search-results-section">${newReleaseHTML}</div>
     `;
 
-    // PERBAIKAN: Tambahkan event listener SETELAH elemennya ada di DOM
-    const searchForm = document.getElementById('search-form');
-    searchForm.addEventListener('submit', async (e) => {
+    // 6. Tambahkan event listener untuk form pencarian SETELAH elemennya ada di DOM
+    document.getElementById('search-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const query = document.getElementById('search-input').value.trim();
         if (!query) return;
 
         const resultsSection = document.getElementById('search-results-section');
         resultsSection.innerHTML = `<div class="loader"></div><p style="text-align:center;">Mencari "${query}"...</p>`;
-
         try {
             const response = await fetch(`/.netlify/functions/scrape?search=${encodeURIComponent(query)}`);
-            if (!response.ok) throw new Error('Gagal melakukan pencarian.');
+            if (!response.ok) {
+                throw new Error(`Gagal melakukan pencarian. Status: ${response.status}`);
+            }
             const searchResults = await response.json();
             
             let searchResultHTML = `<h3 class="section-title">Hasil Pencarian</h3>`;
             if (searchResults.results && searchResults.results.length > 0) {
-                 let animeCardsHTML = '';
+                 searchResultHTML += `<div class="anime-grid">`;
                  searchResults.results.forEach(anime => {
-                     animeCardsHTML += createAnimeCard({
-                         poster: anime.thumbnail,
+                     searchResultHTML += createAnimeCard({
+                         poster: anime.thumbnail, // Thumbnail dari pencarian mungkin null
                          title: anime.title,
                          link: anime.link
                      }).outerHTML;
                  });
-                 searchResultHTML += `<div class="anime-grid">${animeCardsHTML}</div>`;
+                 searchResultHTML += `</div>`;
             } else {
                  searchResultHTML += `<p class="empty-state">Tidak ada hasil ditemukan untuk "${query}".</p>`;
             }
@@ -264,7 +347,10 @@ async function renderHalamanUtama() {
         }
     });
 }
-// 6.2. Render Halaman SUBSCRIBE
+/**
+ * Fungsi untuk merender halaman Subscribe.
+ * Mengambil data dari localStorage dan menampilkannya.
+ */
 function renderHalamanSubscribe() {
     const subscriptions = LocalDataManager.getSubscriptions();
     let contentHTML = `<h1 class="section-title">Langganan Saya</h1>`;
@@ -273,11 +359,13 @@ function renderHalamanSubscribe() {
         contentHTML += `<div class="anime-grid">`;
         subscriptions.forEach(anime => {
             const card = createAnimeCard(anime);
+            // Tambahkan animasi melayang dengan delay acak agar terlihat lebih hidup
             card.style.animationDelay = `${Math.random() * 0.5}s`;
             contentHTML += card.outerHTML;
         });
         contentHTML += `</div>`;
     } else {
+        // Tampilkan pesan jika tidak ada langganan
         contentHTML += `
             <div class="empty-state">
                 <div class="empty-state-icon">⭐</div>
@@ -289,10 +377,15 @@ function renderHalamanSubscribe() {
     appElement.innerHTML = contentHTML;
 }
 
-// 6.3. Render Halaman AKUN
+/**
+ * Fungsi untuk merender halaman Akun.
+ * Mengambil data dari currentUser (Firebase) dan menampilkannya.
+ */
 function renderHalamanAkun() {
+    // Pastikan pengguna sudah login sebelum merender halaman ini
     if (!currentUser) return;
 
+    // Siapkan HTML untuk setiap kartu di halaman Akun
     const userCardHTML = `
         <div class="card user-card floating-card">
             <div class="profile-pic img-frame">
@@ -323,6 +416,7 @@ function renderHalamanAkun() {
 
     const logoutButtonHTML = `<button id="logoutBtn-main" onclick="window.handleLogout()">Logout</button>`;
     
+    // Gabungkan semua HTML dan render ke DOM
     appElement.innerHTML = `
         ${userCardHTML}
         ${devContactHTML}
