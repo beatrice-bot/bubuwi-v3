@@ -4,126 +4,76 @@ const { parseStringPromise } = require('xml2js');
 
 const BASE_URL = 'https://samehadaku.li';
 
-const createResponse = (body, statusCode = 200) => ({
-  statusCode,
-  headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-});
-
-async function getHTML(url) {
+exports.handler = async function (event, context) {
+    const { url, search, animePage } = event.queryStringParameters;
     try {
-        const response = await axios.get(url, { timeout: 8000 });
-        return response.data;
+        let data;
+        if (search) { data = await scrapeSearchFeed(search); } 
+        else if (animePage) { data = await scrapeAnimePage(animePage); }
+        else if (url) { data = await scrapeEpisodePage(url); }
+        else { data = await scrapeHomePage(); }
+        return { statusCode: 200, body: JSON.stringify(data) };
     } catch (error) {
-        if (error.code === 'ECONNABORTED') throw new Error('Request Timeout');
-        throw new Error('Failed to fetch HTML');
+        console.error('Scraping error:', error.message);
+        return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
     }
-}
+};
 
-async function scrapeHomepage() {
-    const html = await getHTML(BASE_URL);
-    const $ = cheerio.load(html);
-    const latest = [];
-    let trending = {};
-
-    try {
-        const trendingEl = $('.trending .tdb a');
-        if (trendingEl.length) {
-            const style = $('.imgxb').attr('style');
-            const poster = style ? style.match(/url\('(.*?)'\)/)[1] : '';
-            trending = {
-                title: trendingEl.find('.numb b').text().trim(),
-                url: trendingEl.attr('href'),
-                poster: poster
-            };
-        }
-    } catch (e) { console.error("Gagal scrape Trending:", e.message); }
-
-    $('.listupd.normal .bs').each((i, el) => {
-        const item = $(el).find('.bsx a');
-        if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
-            latest.push({ 
-                title: item.attr('title').replace(/ Nonton.*/, ''),
-                seriesTitle: item.find('.tt').clone().children().remove().end().text().trim(),
-                url: item.attr('href'), 
-                poster: item.find('img').attr('src'), 
-                episode: item.find('.epx').text().trim() 
-            });
+async function scrapeHomePage() {
+    const { data } = await axios.get(BASE_URL);
+    const $ = cheerio.load(data);
+    const latestReleases = [];
+    const latestReleaseBox = $('.releases.latesthome').parent('.bixbox');
+    latestReleaseBox.find('article.bs').each((i, el) => {
+        const element = $(el);
+        const linkElement = element.find('a');
+        const titleElement = element.find('.tt');
+        const seriesTitle = titleElement.clone().children().remove().end().text().trim();
+        const link = linkElement.attr('href');
+        const thumbnail = element.find('img').attr('src');
+        const episode = element.find('.epx').text().trim();
+        if (seriesTitle && link) {
+            latestReleases.push({ seriesTitle, link, thumbnail, episode });
         }
     });
-    return { trending, latest };
+    return { type: 'latest', results: latestReleases };
 }
 
-async function scrapeSearch(query) {
+async function scrapeSearchFeed(query) {
     const feedUrl = `${BASE_URL}/search/${encodeURIComponent(query)}/feed/rss2/`;
-    try {
-        const { data } = await axios.get(feedUrl, { timeout: 5000 });
-        const parsed = await parseStringPromise(data);
-        if (!parsed.rss.channel[0].item) return [];
-        
-        return parsed.rss.channel[0].item.map(item => {
-            const $ = cheerio.load(item.description[0]);
-            return {
-                title: item.title[0],
-                url: item.link[0],
-                poster: $('img').attr('src') || null
-            };
-        });
-    } catch (e) {
-        console.error("RSS Search failed, falling back to HTML scrape:", e.message);
-        const html = await getHTML(`${BASE_URL}/?s=${encodeURIComponent(query)}`);
-        const $ = cheerio.load(html);
-        const results = [];
-        $('.listupd .bs').each((i, el) => {
-            const item = $(el).find('.bsx a');
-            if (item.attr('title') && item.attr('href')) {
-                results.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src') });
-            }
-        });
-        return results;
-    }
+    const { data } = await axios.get(feedUrl);
+    const parsed = await parseStringPromise(data);
+    if (!parsed.rss.channel[0].item) return { type: 'search', query, results: [] };
+    const results = parsed.rss.channel[0].item.map(item => ({
+        title: item.title[0],
+        link: item.link[0],
+        seriesTitle: item.title[0], 
+        thumbnail: null
+    }));
+    return { type: 'search', query, results };
 }
 
-async function scrapeEpisodes(url) {
-    const html = await getHTML(decodeURIComponent(url));
-    const $ = cheerio.load(html);
+async function scrapeAnimePage(url) {
+    const { data } = await axios.get(url);
+    const $ = cheerio.load(data);
     const episodes = [];
     $('.eplister ul li').each((i, el) => {
-        const item = $(el).find('a');
-        if (item.find('.epl-title').text().trim() && item.attr('href')) {
-            episodes.push({ title: item.find('.epl-title').text().trim(), url: item.attr('href') });
-        }
+        const linkElement = $(el).find('a');
+        episodes.push({ title: linkElement.find('.epl-title').text(), link: linkElement.attr('href') });
     });
-    return {
-        title: $('.infox h1.entry-title').text().trim(),
-        poster: $('.thumbook .thumb img').attr('src'),
-        synopsis: $('.entry-content p').first().text().trim(),
-        episodes: episodes.reverse(),
-    };
+    const thumbnail = $('.thumb img').attr('src');
+    const episodeCount = episodes.length;
+    return { type: 'animePage', episodes, thumbnail, episodeCount };
 }
 
-async function scrapeWatch(url) {
-    const html = await getHTML(decodeURIComponent(url));
-    const $ = cheerio.load(html);
-    return {
-        videoEmbedUrl: $('#pembed iframe').attr('src'),
-        prevEpisodeUrl: $('.naveps a[rel="prev"]').attr('href'),
-        nextEpisodeUrl: $('.naveps a[rel="next"]').attr('href'),
-    };
+async function scrapeEpisodePage(episodeUrl) {
+    const { data } = await axios.get(episodeUrl);
+    const $ = cheerio.load(data);
+    const title = $('.entry-title').text().trim();
+    const videoFrames = [];
+    $('.player-embed iframe').each((i, el) => {
+        const src = $(el).attr('src');
+        if (src) videoFrames.push(src);
+    });
+    return { type: 'episode', title, videoFrames: videoFrames.length > 0 ? videoFrames : [] };
 }
-
-exports.handler = async (event) => {
-  const { target, url, query } = event.queryStringParameters;
-  try {
-    let responseData;
-    if (target === 'home') responseData = await scrapeHomepage();
-    else if (target === 'episodes') responseData = await scrapeEpisodes(url);
-    else if (target === 'watch') responseData = await scrapeWatch(url);
-    else if (target === 'search') responseData = await scrapeSearch(query);
-    else return createResponse({ error: 'Invalid target' }, 400);
-    return createResponse(responseData);
-  } catch (error) {
-    console.error(`Scraping Error on target ${target}:`, error.message);
-    return createResponse({ error: `Sumber data tidak merespon atau error: ${error.message}` }, 504);
-  }
-};
