@@ -20,8 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 2. STATE APLIKASI (SUMBER KEBENARAN) ---
     const state = {
         currentUser: null,
-        history: {},      // Menggunakan object untuk pencarian cepat
-        subscriptions: {},// Menggunakan object untuk pencarian cepat
         currentAnime: {}, // Menyimpan data anime yang sedang dibuka (untuk halaman episode & nonton)
         activeListeners: [] // Menyimpan semua listener aktif agar bisa dimatikan
     };
@@ -45,11 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const cacheKey = `bubuwi_cache_${query}`;
 
             if (useCache) {
-                const cached = sessionStorage.getItem(cacheKey);
-                if (cached) {
-                    const { timestamp, data } = JSON.parse(cached);
-                    if (Date.now() - timestamp < CACHE_DURATION) return data;
-                }
+                try {
+                    const cached = sessionStorage.getItem(cacheKey);
+                    if (cached) {
+                        const { timestamp, data } = JSON.parse(cached);
+                        if (Date.now() - timestamp < CACHE_DURATION) return data;
+                    }
+                } catch (e) { console.error("Gagal membaca cache:", e); }
             }
             
             const response = await fetch(`/api/scrape?${query}`);
@@ -57,7 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (useCache) {
-                sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data }));
+                try {
+                    sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data }));
+                } catch (e) { console.error("Gagal menyimpan cache:", e); }
             }
             return data;
         }
@@ -94,7 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleSubscription: (animeData) => {
                 if (!state.currentUser) return;
                 const ref = db.ref(`users/${state.currentUser.uid}/subscriptions/${generateKey(animeData.url)}`);
-                ref.once('value', snapshot => snapshot.exists() ? ref.remove() : ref.set(animeData));
+                ref.once('value', snapshot => snapshot.exists() ? ref.remove() : ref.set({
+                    title: animeData.title,
+                    poster: animeData.poster,
+                    url: animeData.url
+                }));
             },
             submitComment: (animeUrl, episodeUrl, text) => {
                 if (!state.currentUser || !text.trim()) return;
@@ -165,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `,
             subscribe: () => `<div id="subscribe-view" class="view"><div class="view-header card"><h3><i class="fas fa-bookmark"></i> Anime yang Di-subscribe</h3></div><div id="subscribed-list" class="anime-grid">${createSkeletonCards(6)}</div></div>`,
-            history: () => `<div id="history-view" class="view"><div class="view-header card"><h3><i class="fas fa-history"></i> Riwayat Tontonan</h3></div><div id="history-list" class="anime-grid">${createSkeletonCards(6)}</div></div>`,
             account: (user) => `
                 <div id="account-view" class="view">
                     <div class="account-logo-card card"><img src="https://i.imgur.com/9uK2OPw.png" alt="Bubuwi Logo" class="account-logo"></div>
@@ -175,11 +180,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="developer-contact card">
                         <a href="https://www.instagram.com/adnanmwa" target="_blank" class="contact-item">
-                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSZixwpxim0dp6v2ibyW9RZ5L6UjI3GMBqPZA&s" alt="Instagram" class="contact-item-logo">
+                            <div class="contact-item-logo-wrapper"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSZixwpxim0dp6v2ibyW9RZ5L6UjI3GMBqPZA&s" alt="Instagram" class="contact-item-logo"></div>
                             <span>@adnanmwa</span>
                         </a>
                         <a href="https://www.tiktok.com/@adnansagiri" target="_blank" class="contact-item">
-                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNxuydAoOVzXmO6EXy6vZhaJ17jCGvYKITEzu7BNMYkEaux6HqKvnQax0Q&s=10" alt="TikTok" class="contact-item-logo">
+                            <div class="contact-item-logo-wrapper"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNxuydAoOVzXmO6EXy6vZhaJ17jCGvYKITEzu7BNMYkEaux6HqKvnQax0Q&s=10" alt="TikTok" class="contact-item-logo"></div>
                             <span>@adnansagiri</span>
                         </a>
                     </div>
@@ -315,10 +320,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     UI.render('subscribe');
                     DB.listenToSubscriptions(UI.renderSubscriptions);
                     break;
-                case 'history': // Navigasi ini sudah dihapus, tapi logikanya tetap ada jika diperlukan
-                    UI.render('history');
-                    DB.listenToHistory(UI.renderHistory);
-                    break;
                 case 'account':
                     UI.render('account', state.currentUser);
                     break;
@@ -345,12 +346,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     UI.render('watch', { ...watchData, episodeTitle: `Episode ${(currentEp.title.match(/\d+/) || ['?'])[0]}` });
                     document.getElementById('episode-list-watch').innerHTML = state.currentAnime.episodes.map(ep => `<div class="episode-item" data-action="watch" data-url="${ep.url}">Eps ${(ep.title.match(/\d+/) || ['?'])[0]}</div>`).join('');
                     DB.addToHistory({ title: state.currentAnime.title, poster: state.currentAnime.poster, url: state.currentAnime.url }, currentEp);
-                    DB.listenToComments(state.currentAnime.url, params.url, UI.renderComments);
+                    DB.listenToComments(state.currentAnime.url, params.url, (snapshot) => UI.renderComments(snapshot, state.currentAnime.url, params.url));
                     break;
             }
         } catch(error) {
             console.error("Error loading view:", viewName, error);
-            mainContent.innerHTML = createEmptyState("Gagal memuat konten. Coba lagi nanti.");
+            mainContent.innerHTML = UI.render('subscribe'); // Fallback ke halaman subscribe jika error
         } finally {
             showLoading(false);
         }
@@ -371,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- EVENT LISTENERS UTAMA (EVENT DELEGATION) ---
-    document.getElementById('login-btn').addEventListener('click', () => auth.signInWithPopup(provider));
+    document.getElementById('login-btn').addEventListener('click', () => auth.signInWithRedirect(provider));
     
     document.getElementById('bottom-nav').addEventListener('click', (e) => {
         const navButton = e.target.closest('.nav-button');
@@ -448,5 +449,8 @@ document.addEventListener('DOMContentLoaded', () => {
             onEnter: batch => gsap.to(batch, { opacity: 1, y: 0, stagger: 0.05, ease: "power2.out" }),
         });
     }
+
+    // Cek hasil redirect login saat halaman dimuat
+    auth.getRedirectResult().catch(error => console.error("Redirect login error:", error));
 });
 // === BAGIAN 3 DARI 3 SELESAI ===
