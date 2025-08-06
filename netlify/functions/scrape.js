@@ -1,6 +1,5 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { parseStringPromise } = require('xml2js');
 
 const BASE_URL = 'https://samehadaku.li';
 
@@ -16,29 +15,15 @@ async function getHTML(url) {
         return response.data;
     } catch (error) {
         if (error.code === 'ECONNABORTED') throw new Error('Request Timeout');
-        throw new Error('Failed to fetch HTML');
+        throw new Error(`Failed to fetch HTML from ${url}`);
     }
 }
 
+// HANYA MENGAMBIL RILIS TERBARU, CEPAT DAN STABIL
 async function scrapeHomepage() {
     const html = await getHTML(BASE_URL);
     const $ = cheerio.load(html);
     const latest = [];
-    let trending = {};
-
-    try {
-        const trendingEl = $('.trending .tdb a');
-        if (trendingEl.length) {
-            const style = $('.imgxb').attr('style');
-            const poster = style ? style.match(/url\('(.*?)'\)/)[1] : '';
-            trending = {
-                title: trendingEl.find('.numb b').text().trim(),
-                url: trendingEl.attr('href'),
-                poster: poster
-            };
-        }
-    } catch (e) { console.error("Gagal scrape Trending:", e.message); }
-
     $('.listupd.normal .bs').each((i, el) => {
         const item = $(el).find('.bsx a');
         if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
@@ -51,37 +36,7 @@ async function scrapeHomepage() {
             });
         }
     });
-    return { trending, latest };
-}
-
-async function scrapeSearch(query) {
-    const feedUrl = `${BASE_URL}/search/${encodeURIComponent(query)}/feed/rss2/`;
-    try {
-        const { data } = await axios.get(feedUrl, { timeout: 5000 });
-        const parsed = await parseStringPromise(data);
-        if (!parsed.rss.channel[0].item) return [];
-        
-        return parsed.rss.channel[0].item.map(item => {
-            const $ = cheerio.load(item.description[0]);
-            return {
-                title: item.title[0],
-                url: item.link[0],
-                poster: $('img').attr('src') || null
-            };
-        });
-    } catch (e) {
-        console.error("RSS Search failed, falling back to HTML scrape:", e.message);
-        const html = await getHTML(`${BASE_URL}/?s=${encodeURIComponent(query)}`);
-        const $ = cheerio.load(html);
-        const results = [];
-        $('.listupd .bs').each((i, el) => {
-            const item = $(el).find('.bsx a');
-            if (item.attr('title') && item.attr('href')) {
-                results.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src') });
-            }
-        });
-        return results;
-    }
+    return { latest };
 }
 
 async function scrapeEpisodes(url) {
@@ -112,18 +67,18 @@ async function scrapeWatch(url) {
     };
 }
 
+
 exports.handler = async (event) => {
-  const { target, url, query } = event.queryStringParameters;
+  const { target, url } = event.queryStringParameters;
   try {
-    let responseData;
-    if (target === 'home') responseData = await scrapeHomepage();
-    else if (target === 'episodes') responseData = await scrapeEpisodes(url);
-    else if (target === 'watch') responseData = await scrapeWatch(url);
-    else if (target === 'search') responseData = await scrapeSearch(query);
+    let data;
+    if (target === 'home') data = await scrapeHomepage();
+    else if (target === 'episodes') data = await scrapeEpisodes(url);
+    else if (target === 'watch') data = await scrapeWatch(url);
     else return createResponse({ error: 'Invalid target' }, 400);
-    return createResponse(responseData);
+    return createResponse(data);
   } catch (error) {
     console.error(`Scraping Error on target ${target}:`, error.message);
-    return createResponse({ error: `Sumber data tidak merespon atau error: ${error.message}` }, 504);
+    return createResponse({ error: `Sumber data error: ${error.message}` }, 500);
   }
 };
