@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         apiKey: "AIzaSyD8HjXwynugy5q-_KlqLajw27PDgUJ4QUk",
         authDomain: "bubuwi-pro.firebaseapp.com",
         projectId: "bubuwi-pro",
-        databaseURL: "https://bubuwi-pro-default-rtdb.asia-southeast1.firebasedatabase.app",
+        databaseURL: "https://bubuwi-pro-default-rtdb.asia-southeast1.firebasedata.app",
         storageBucket: "bubuwi-pro.appspot.com",
         messagingSenderId: "741891119074",
         appId: "1:741891119074:web:93cc65fb2cd94033aa4bbb"
@@ -17,13 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.database();
     const provider = new firebase.auth.GoogleAuthProvider();
 
-    // --- 2. STATE APLIKASI ---
+    // --- 2. STATE APLIKASI (SUMBER KEBENARAN) ---
     const state = {
         currentUser: null,
-        history: {},
-        subscriptions: {},
-        currentAnime: {},
-        activeListeners: []
+        history: {},      // Menggunakan object untuk pencarian cepat
+        subscriptions: {},// Menggunakan object untuk pencarian cepat
+        currentAnime: {}, // Menyimpan data anime yang sedang dibuka (untuk halaman episode & nonton)
+        activeListeners: [] // Menyimpan semua listener aktif agar bisa dimatikan
     };
 
     // --- 3. ELEMEN UTAMA ---
@@ -38,25 +38,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 5. MODUL API (MENGAMBIL DATA DARI SCRAPER) ---
     const API = (() => {
-        const CACHE_DURATION = 15 * 60 * 1000; // Cache 15 menit
+        const CACHE_DURATION = 3 * 60 * 60 * 1000; // Cache 3 jam untuk halaman utama
         async function fetchData(target, params = {}) {
             const query = new URLSearchParams({ target, ...params }).toString();
+            // Hanya cache halaman utama
+            const useCache = target === 'home';
             const cacheKey = `bubuwi_cache_${query}`;
-            const cached = sessionStorage.getItem(cacheKey);
-            if (cached) {
-                const { timestamp, data } = JSON.parse(cached);
-                if (Date.now() - timestamp < CACHE_DURATION) return data;
+
+            if (useCache) {
+                const cached = sessionStorage.getItem(cacheKey);
+                if (cached) {
+                    const { timestamp, data } = JSON.parse(cached);
+                    if (Date.now() - timestamp < CACHE_DURATION) return data;
+                }
             }
+            
             const response = await fetch(`/.netlify/functions/scrape?${query}`);
             if (!response.ok) throw new Error(`Scraping failed for target: ${target}`);
             const data = await response.json();
-            sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data }));
+
+            if (useCache) {
+                sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data }));
+            }
             return data;
         }
         return {
             getHome: () => fetchData('home'),
             getEpisodes: (url) => fetchData('episodes', { url: encodeURIComponent(url) }),
             getWatch: (url) => fetchData('watch', { url: encodeURIComponent(url) }),
+            search: (query) => fetchData('search', { query: encodeURIComponent(query) })
         };
     })();
 
@@ -71,10 +81,16 @@ document.addEventListener('DOMContentLoaded', () => {
             state.activeListeners.push({ ref, callback });
         };
         return {
-            addToHistory: (animeData) => {
+            addToHistory: (animeData, episodeData) => {
                 if (!state.currentUser) return;
                 const ref = db.ref(`users/${state.currentUser.uid}/history/${generateKey(animeData.url)}`);
-                ref.set({ title: animeData.title, poster: animeData.poster, url: animeData.url, lastWatched: firebase.database.ServerValue.TIMESTAMP });
+                ref.set({ 
+                    title: animeData.title, 
+                    poster: animeData.poster, 
+                    url: animeData.url, 
+                    episode: `Eps ${(episodeData.title.match(/\d+/) || [])[0] || ''}`,
+                    lastWatched: firebase.database.ServerValue.TIMESTAMP 
+                });
             },
             toggleSubscription: (animeData) => {
                 if (!state.currentUser) return;
@@ -99,7 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
             listenToHistory: (callback) => listen(db.ref(`users/${state.currentUser.uid}/history`).orderByChild('lastWatched'), callback),
             listenToSubscriptions: (callback) => listen(db.ref(`users/${state.currentUser.uid}/subscriptions`), callback),
             listenToComments: (animeUrl, episodeUrl, callback) => listen(db.ref(`comments/${generateKey(animeUrl)}/${generateKey(episodeUrl)}`).orderByChild('timestamp'), callback),
-            listenToSingleSubscription: (animeUrl, callback) => listen(db.ref(`users/${state.currentUser.uid}/subscriptions/${generateKey(animeUrl)}`), callback),
         };
     })();
 
@@ -110,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const UI = (() => {
         const createAnimeCard = (anime) => `
             <div class="anime-card" data-action="view-episodes" data-url="${anime.url}">
-                <img src="${anime.poster}" alt="${anime.title}" loading="lazy">
+                <img src="${anime.poster || 'https://via.placeholder.com/247x350.png?text=Bubuwi'}" alt="${anime.title}" loading="lazy">
                 <div class="title">${(anime.episode || anime.title).replace('Subtitle Indonesia', '')}</div>
             </div>`;
             
@@ -126,18 +141,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h2 class="hero-title">Temukan Anime Favoritmu</h2>
                     </div>
                     <form class="search-form card" data-action="search">
-                        <input type="text" id="search-input" name="query" placeholder="Pencarian belum aktif...">
-                        <button id="search-button" type="submit" disabled><i class="fas fa-search"></i></button>
+                        <input type="text" id="search-input" name="query" placeholder="Cari anime..." required>
+                        <button id="search-button" type="submit"><i class="fas fa-search"></i></button>
                     </form>
+                    <div class="content-section" id="history-preview-section">
+                        <h3><i class="fas fa-history"></i> Terakhir Ditonton</h3>
+                        <div class="anime-grid" id="home-history-list"></div>
+                    </div>
                     <div class="content-section" id="trending-section">
-                        <h3><i class="fas fa-chart-line"></i> Trending Minggu Ini</h3>
-                        <div id="trending-list">${createSkeletonCards(1, 'trending')}</div>
+                         <h3><i class="fas fa-chart-line"></i> Trending Minggu Ini</h3>
+                        <div id="trending-list">${createSkeletonCards(1)}</div>
                     </div>
                     <div class="content-section" id="latest-release-section">
                         <h3><i class="fas fa-fire"></i> Baru Rilis</h3>
                         <div class="anime-grid" id="latest-releases-list">${createSkeletonCards(12)}</div>
                     </div>
                 </div>`,
+            search: (query) => `
+                <div id="search-view" class="view">
+                    <button class="back-button" data-action="go-home"><i class="fas fa-arrow-left"></i> Kembali</button>
+                    <div class="view-header card"><h3>Hasil Pencarian untuk "${query}"</h3></div>
+                    <div id="search-results-list" class="anime-grid">${createSkeletonCards(9)}</div>
+                </div>
+            `,
             subscribe: () => `<div id="subscribe-view" class="view"><div class="view-header card"><h3><i class="fas fa-bookmark"></i> Anime yang Di-subscribe</h3></div><div id="subscribed-list" class="anime-grid">${createSkeletonCards(6)}</div></div>`,
             history: () => `<div id="history-view" class="view"><div class="view-header card"><h3><i class="fas fa-history"></i> Riwayat Tontonan</h3></div><div id="history-list" class="anime-grid">${createSkeletonCards(6)}</div></div>`,
             account: (user) => `
@@ -148,8 +174,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="user-details"><h2>${user.displayName}</h2><p>${user.email}</p></div>
                     </div>
                     <div class="developer-contact card">
-                        <a href="https://www.instagram.com/adnanmwa" target="_blank" class="contact-item"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSLht-agYy8VEU-3bkfGKEr9sqEe--B8jfA7Q&s" alt="Instagram"><span>@adnanmwa</span></a>
-                        <a href="https://www.tiktok.com/@adnansagiri" target="_blank" class="contact-item"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrLEt7CpnTRQ1va0on-RGO3aDsgpdlNFUoaw&s" alt="TikTok"><span>@adnansagiri</span></a>
+                        <a href="https://www.instagram.com/adnanmwa" target="_blank" class="contact-item">
+                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSZixwpxim0dp6v2ibyW9RZ5L6UjI3GMBqPZA&s" alt="Instagram" class="contact-item-logo">
+                            <span>@adnanmwa</span>
+                        </a>
+                        <a href="https://www.tiktok.com/@adnansagiri" target="_blank" class="contact-item">
+                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNxuydAoOVzXmO6EXy6vZhaJ17jCGvYKITEzu7BNMYkEaux6HqKvnQax0Q&s=10" alt="TikTok" class="contact-item-logo">
+                            <span>@adnansagiri</span>
+                        </a>
                     </div>
                     <button data-action="logout" class="logout-button">Logout</button>
                 </div>`,
@@ -161,17 +193,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button id="subscribe-button" class="subscribe-button" data-action="subscribe"><i class="fas fa-plus"></i> Subscribe</button>
                     <div class="episode-list-container card">
                         <h4>Pilih Episode</h4>
-                        <div id="episode-list" class="episodes-grid">${data.episodes.map(ep => `<div class="episode-item" data-action="watch" data-url="${ep.url}">Eps ${(ep.title.match(/\d+/) || [])[0] || ''}</div>`).join('')}</div>
+                        <div id="episode-list" class="episodes-grid">${data.episodes.map(ep => `<div class="episode-item" data-action="watch" data-url="${ep.url}">Eps ${(ep.title.match(/\d+/) || ['?'])[0]}</div>`).join('')}</div>
                     </div>
                 </div>`,
             watch: (data) => `
                 <div id="watch-view" class="view">
-                    <button class="back-button" data-action="go-to-episodes"><i class="fas fa-arrow-left"></i> Kembali</button>
+                    <button class="back-button" data-action="go-to-episodes"><i class="fas fa-arrow-left"></i> Kembali ke Daftar Episode</button>
                     <div class="video-player-card card"><div class="video-player-container"><iframe id="video-player" src="${data.videoEmbedUrl || ''}" frameborder="0" allowfullscreen></iframe></div></div>
                     <div id="watch-info-box" class="card"><p>${data.episodeTitle}</p></div>
                     <div class="episode-navigation">
-                        <button class="nav-btn" ${!data.prevEpisodeUrl ? 'disabled' : ''} data-action="watch" data-url="${data.prevEpisodeUrl}">Prev</button>
-                        <button class="nav-btn" ${!data.nextEpisodeUrl ? 'disabled' : ''} data-action="watch" data-url="${data.nextEpisodeUrl}">Next</button>
+                        <button class="nav-btn" ${!data.prevEpisodeUrl ? 'disabled' : ''} data-action="watch" data-url="${data.prevEpisodeUrl || ''}">Prev</button>
+                        <button class="nav-btn" ${!data.nextEpisodeUrl ? 'disabled' : ''} data-action="watch" data-url="${data.nextEpisodeUrl || ''}">Next</button>
                     </div>
                     <div class="episode-list-container-watch card">
                         <h4>Episode Lainnya</h4>
@@ -179,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div id="add-comment-container" class="card">
                         <h4>Tambahkan Komentar</h4>
-                        <form class="add-comment" data-action="submit-comment">
+                        <form id="comment-form" data-action="submit-comment">
                             <img src="${state.currentUser.photoURL}" alt="User" class="profile-pic-comment">
                             <input type="text" id="comment-input" name="comment" placeholder="Tulis komentarmu..." required>
                             <button id="comment-submit-btn" type="submit" disabled><i class="fas fa-paper-plane"></i></button>
@@ -206,6 +238,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 document.getElementById('latest-releases-list').innerHTML = data.latest.map(createAnimeCard).join('');
             },
+            renderHistoryPreview: (snapshot) => {
+                 const container = document.getElementById('home-history-list');
+                if (!container || !snapshot.exists()) { if(container) container.style.display = 'none'; return; }
+                container.style.display = 'grid';
+                let history = []; snapshot.forEach(child => history.push(child.val()));
+                container.innerHTML = history.reverse().slice(0, 3).map(createAnimeCard).join('');
+            },
             renderHistory: (snapshot) => {
                 const container = document.getElementById('history-list');
                 if (!snapshot.exists()) { container.innerHTML = createEmptyState("Riwayat tontonanmu masih kosong."); return; }
@@ -220,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             renderComments: (snapshot, animeUrl, episodeUrl) => {
                 const container = document.getElementById('comments-list');
+                if (!container) return;
                 if (!snapshot.exists()) { container.innerHTML = '<p style="text-align:center; color: var(--text-secondary);">Belum ada komentar.</p>'; return; }
                 let comments = []; snapshot.forEach(child => comments.push({ key: child.key, ...child.val() }));
                 container.innerHTML = comments.reverse().map(c => `
@@ -235,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // === BAGIAN 2 DARI 3 SELESAI ===
 // === BAGIAN 3 DARI 3 DIMULAI ===
 
-    // --- 8. VIEW CONTROLLER (LOGIKA UTAMA APLIKASI) ---
+    // --- 8. VIEW CONTROLLER & INISIALISASI ---
     async function switchView(viewName, params = {}) {
         showLoading(true);
         activeListeners.forEach(l => l.ref.off('value', l.callback));
@@ -247,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             switch (viewName) {
                 case 'home':
                     UI.render('home');
+                    DB.listenToHistory(UI.renderHistoryPreview);
                     const homeData = await API.getHome();
                     UI.renderHomepage(homeData);
                     initGsapAnimations();
@@ -282,28 +323,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'watch':
                     const watchData = await API.getWatch(params.url);
                     const currentEp = state.currentAnime.episodes.find(ep => ep.url === params.url);
-                    UI.render('watch', { ...watchData, episodeTitle: `Episode ${(currentEp.title.match(/\d+/) || [])[0] || ''}` });
-                    document.getElementById('episode-list-watch').innerHTML = state.currentAnime.episodes.map(ep => `<div class="episode-item" data-action="watch" data-url="${ep.url}">Eps ${(ep.title.match(/\d+/) || [])[0] || ''}</div>`).join('');
-                    DB.addToHistory({ title: state.currentAnime.title, poster: state.currentAnime.poster, url: state.currentAnime.url });
+                    UI.render('watch', { ...watchData, episodeTitle: `Episode ${(currentEp.title.match(/\d+/) || ['?'])[0]}` });
+                    document.getElementById('episode-list-watch').innerHTML = state.currentAnime.episodes.map(ep => `<div class="episode-item" data-action="watch" data-url="${ep.url}">Eps ${(ep.title.match(/\d+/) || ['?'])[0]}</div>`).join('');
+                    DB.addToHistory({ title: state.currentAnime.title, poster: state.currentAnime.poster, url: state.currentAnime.url }, currentEp);
                     DB.listenToComments(state.currentAnime.url, params.url, (snapshot) => UI.renderComments(snapshot, state.currentAnime.url, params.url));
                     break;
             }
         } catch(error) {
             console.error("Error loading view:", viewName, error);
-            mainContent.innerHTML = createEmptyState("Gagal memuat konten. Coba lagi nanti.");
+            mainContent.innerHTML = UI.render('history'); // Fallback
         } finally {
             showLoading(false);
         }
     }
     
-    // --- 9. OTENTIKASI & INISIALISASI ---
+    // --- 9. OTENTIKASI ---
     auth.onAuthStateChanged(user => {
         state.currentUser = user;
         if (user) {
             loginPage.style.display = 'none';
             appContainer.style.display = 'flex';
-            DB.listenToHistory(()=>{}); // Pre-warm history listener
-            DB.listenToSubscriptions(()=>{}); // Pre-warm subscription listener
             switchView('home');
         } else {
             loginPage.style.display = 'flex';
@@ -313,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- EVENT LISTENERS UTAMA (EVENT DELEGATION) ---
+    // --- 10. EVENT LISTENERS UTAMA (EVENT DELEGATION) ---
     document.getElementById('login-btn').addEventListener('click', () => auth.signInWithPopup(provider));
     
     document.getElementById('bottom-nav').addEventListener('click', (e) => {
@@ -348,8 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 DB.toggleSubscription({ title: state.currentAnime.title, poster: state.currentAnime.poster, url: state.currentAnime.url });
                 break;
             case 'delete-comment':
-                const commentData = state.currentAnime.episodes.find(ep => document.getElementById('video-player').src.includes(ep.url));
-                DB.deleteComment(state.currentAnime.url, commentData.url, key);
+                const episodeUrl = state.currentAnime.episodes.find(ep => document.getElementById('video-player').src.includes(ep.url)).url;
+                DB.deleteComment(state.currentAnime.url, episodeUrl, key);
                 break;
         }
     });
