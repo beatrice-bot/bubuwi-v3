@@ -41,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const CACHE_DURATION = 3 * 60 * 60 * 1000; // Cache 3 jam untuk halaman utama
         async function fetchData(target, params = {}) {
             const query = new URLSearchParams({ target, ...params }).toString();
-            // Hanya cache halaman utama
             const useCache = target === 'home';
             const cacheKey = `bubuwi_cache_${query}`;
 
@@ -53,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            const response = await fetch(`/.netlify/functions/scrape?${query}`);
+            const response = await fetch(`/api/scrape?${query}`);
             if (!response.ok) throw new Error(`Scraping failed for target: ${target}`);
             const data = await response.json();
 
@@ -88,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     title: animeData.title, 
                     poster: animeData.poster, 
                     url: animeData.url, 
-                    episode: `Eps ${(episodeData.title.match(/\d+/) || [])[0] || ''}`,
+                    episode: `Eps ${(episodeData.title.match(/\d+/) || ['?'])[0]}`,
                     lastWatched: firebase.database.ServerValue.TIMESTAMP 
                 });
             },
@@ -115,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             listenToHistory: (callback) => listen(db.ref(`users/${state.currentUser.uid}/history`).orderByChild('lastWatched'), callback),
             listenToSubscriptions: (callback) => listen(db.ref(`users/${state.currentUser.uid}/subscriptions`), callback),
             listenToComments: (animeUrl, episodeUrl, callback) => listen(db.ref(`comments/${generateKey(animeUrl)}/${generateKey(episodeUrl)}`).orderByChild('timestamp'), callback),
+            listenToSingleSubscription: (animeUrl, callback) => listen(db.ref(`users/${state.currentUser.uid}/subscriptions/${generateKey(animeUrl)}`), callback),
         };
     })();
 
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="text" id="search-input" name="query" placeholder="Cari anime..." required>
                         <button id="search-button" type="submit"><i class="fas fa-search"></i></button>
                     </form>
-                    <div class="content-section" id="history-preview-section">
+                    <div class="content-section" id="history-preview-section" style="display: none;">
                         <h3><i class="fas fa-history"></i> Terakhir Ditonton</h3>
                         <div class="anime-grid" id="home-history-list"></div>
                     </div>
@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h4>Tambahkan Komentar</h4>
                         <form id="comment-form" data-action="submit-comment">
                             <img src="${state.currentUser.photoURL}" alt="User" class="profile-pic-comment">
-                            <input type="text" id="comment-input" name="comment" placeholder="Tulis komentarmu..." required>
+                            <input type="text" id="comment-input" name="comment" placeholder="Tulis komentarmu..." required autocomplete="off">
                             <button id="comment-submit-btn" type="submit" disabled><i class="fas fa-paper-plane"></i></button>
                         </form>
                     </div>
@@ -235,13 +235,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="title">${data.trending.title}</span>
                             </div>
                         </div>`;
+                } else {
+                     document.getElementById('trending-section').style.display = 'none';
                 }
                 document.getElementById('latest-releases-list').innerHTML = data.latest.map(createAnimeCard).join('');
             },
             renderHistoryPreview: (snapshot) => {
-                 const container = document.getElementById('home-history-list');
-                if (!container || !snapshot.exists()) { if(container) container.style.display = 'none'; return; }
-                container.style.display = 'grid';
+                const container = document.getElementById('home-history-list');
+                const section = document.getElementById('history-preview-section');
+                if (!container || !snapshot.exists()) {
+                    if(section) section.style.display = 'none';
+                    return;
+                }
+                section.style.display = 'block';
                 let history = []; snapshot.forEach(child => history.push(child.val()));
                 container.innerHTML = history.reverse().slice(0, 3).map(createAnimeCard).join('');
             },
@@ -268,6 +274,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="comment-content"><p class="username">${c.name}</p><p>${c.text.replace(/</g, "&lt;")}</p></div>
                         ${state.currentUser && state.currentUser.uid === c.uid ? `<button class="delete-comment-btn" data-action="delete-comment" data-key="${c.key}"><i class="fas fa-trash"></i></button>` : ''}
                     </div>`).join('');
+            },
+            renderSearchResults: (results) => {
+                const container = document.getElementById('search-results-list');
+                if (!results || results.length === 0) {
+                    container.innerHTML = createEmptyState("Anime tidak ditemukan.");
+                    return;
+                }
+                container.innerHTML = results.map(createAnimeCard).join('');
             }
         };
     })();
@@ -292,11 +306,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     UI.renderHomepage(homeData);
                     initGsapAnimations();
                     break;
+                case 'search':
+                    UI.render('search', params.query);
+                    const searchResults = await API.search(params.query);
+                    UI.renderSearchResults(searchResults);
+                    break;
                 case 'subscribe':
                     UI.render('subscribe');
                     DB.listenToSubscriptions(UI.renderSubscriptions);
                     break;
-                case 'history':
+                case 'history': // Navigasi ini sudah dihapus, tapi logikanya tetap ada jika diperlukan
                     UI.render('history');
                     DB.listenToHistory(UI.renderHistory);
                     break;
@@ -326,18 +345,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     UI.render('watch', { ...watchData, episodeTitle: `Episode ${(currentEp.title.match(/\d+/) || ['?'])[0]}` });
                     document.getElementById('episode-list-watch').innerHTML = state.currentAnime.episodes.map(ep => `<div class="episode-item" data-action="watch" data-url="${ep.url}">Eps ${(ep.title.match(/\d+/) || ['?'])[0]}</div>`).join('');
                     DB.addToHistory({ title: state.currentAnime.title, poster: state.currentAnime.poster, url: state.currentAnime.url }, currentEp);
-                    DB.listenToComments(state.currentAnime.url, params.url, (snapshot) => UI.renderComments(snapshot, state.currentAnime.url, params.url));
+                    DB.listenToComments(state.currentAnime.url, params.url, UI.renderComments);
                     break;
             }
         } catch(error) {
             console.error("Error loading view:", viewName, error);
-            mainContent.innerHTML = UI.render('history'); // Fallback
+            mainContent.innerHTML = createEmptyState("Gagal memuat konten. Coba lagi nanti.");
         } finally {
             showLoading(false);
         }
     }
     
-    // --- 9. OTENTIKASI ---
     auth.onAuthStateChanged(user => {
         state.currentUser = user;
         if (user) {
@@ -352,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 10. EVENT LISTENERS UTAMA (EVENT DELEGATION) ---
+    // --- EVENT LISTENERS UTAMA (EVENT DELEGATION) ---
     document.getElementById('login-btn').addEventListener('click', () => auth.signInWithPopup(provider));
     
     document.getElementById('bottom-nav').addEventListener('click', (e) => {
@@ -372,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 switchView('episode', { url });
                 break;
             case 'watch':
-                if(url) switchView('watch', { url });
+                if (url && !target.closest('.nav-btn[disabled]')) switchView('watch', { url });
                 break;
             case 'go-home':
                 switchView('home');
@@ -387,8 +405,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 DB.toggleSubscription({ title: state.currentAnime.title, poster: state.currentAnime.poster, url: state.currentAnime.url });
                 break;
             case 'delete-comment':
-                const episodeUrl = state.currentAnime.episodes.find(ep => document.getElementById('video-player').src.includes(ep.url)).url;
-                DB.deleteComment(state.currentAnime.url, episodeUrl, key);
+                const watchView = document.getElementById('watch-view');
+                if (watchView) {
+                    const activeEpisodeUrl = state.currentAnime.episodes.find(ep => document.getElementById('video-player').src.includes(ep.url)).url;
+                    DB.deleteComment(state.currentAnime.url, activeEpisodeUrl, key);
+                }
                 break;
         }
     });
@@ -396,6 +417,10 @@ document.addEventListener('DOMContentLoaded', () => {
     mainContent.addEventListener('submit', (e) => {
         e.preventDefault();
         const action = e.target.dataset.action;
+        if (action === 'search') {
+            const query = e.target.querySelector('input[name="query"]').value;
+            if (query.trim()) switchView('search', { query: query.trim() });
+        }
         if (action === 'submit-comment') {
             const commentInput = document.getElementById('comment-input');
             const commentText = commentInput.value;
