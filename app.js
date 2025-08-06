@@ -7,12 +7,12 @@ import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.
 
 // GANTI DENGAN KONFIGURASI FIREBASE ANDA SENDIRI
 const firebaseConfig = {
-    apiKey: "ISI_DENGAN_API_KEY_ANDA",
-    authDomain: "ISI_DENGAN_AUTH_DOMAIN_ANDA",
-    projectId: "ISI_DENGAN_PROJECT_ID_ANDA",
-    storageBucket: "ISI_DENGAN_STORAGE_BUCKET_ANDA",
-    messagingSenderId: "ISI_DENGAN_MESSAGING_SENDER_ID_ANDA",
-    appId: "ISI_DENGAN_APP_ID_ANDA"
+    apiKey: "AIzaSyD8HjXwynugy5q-_KlqLajw27PDgUJ4QUk",
+    authDomain: "bubuwi-pro.firebaseapp.com",
+    projectId: "bubuwi-pro",
+    storageBucket: "bubuwi-pro.firebasestorage.app",
+    messagingSenderId: "741891119074",
+    appId: "1:741891119074:web:93cc65fb2cd94033aa4bbb"
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
