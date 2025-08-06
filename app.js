@@ -372,7 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- EVENT LISTENERS UTAMA (EVENT DELEGATION) ---
-    document.getElementById('login-btn').addEventListener('click', () => auth.signInWithRedirect(provider));
+    document.getElementById('login-btn').addEventListener('click', () => auth.signInWithPopup(provider).catch(err => console.error("Login popup error:", err)));
+    
     
     document.getElementById('bottom-nav').addEventListener('click', (e) => {
         const navButton = e.target.closest('.nav-button');
@@ -449,8 +450,6 @@ document.addEventListener('DOMContentLoaded', () => {
             onEnter: batch => gsap.to(batch, { opacity: 1, y: 0, stagger: 0.05, ease: "power2.out" }),
         });
     }
-
-    // Cek hasil redirect login saat halaman dimuat
-    auth.getRedirectResult().catch(error => console.error("Redirect login error:", error));
+    
 });
 // === BAGIAN 3 DARI 3 SELESAI ===
