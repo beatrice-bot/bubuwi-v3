@@ -1,347 +1,383 @@
-/* === BAGIAN 1 DARI 2 DIMULAI === */
+/* ---- BAGIAN 1: PENGATURAN GLOBAL & DARK THEME ---- */
 :root {
-    --bg-primary: #0a041a;
-    --text-primary: #f0f0f8;
-    --text-secondary: #a0a0b0;
-    --accent-primary: #8e44ad;
-    --accent-secondary: #3498db;
-    --card-bg: rgba(22, 16, 48, 0.6);
-    --card-border: rgba(142, 68, 173, 0.2);
-    --font-title: 'Orbitron', sans-serif;
-    --font-body: 'Poppins', sans-serif;
-    --green-color: #4caf50;
-    --red-color: #c62828;
+    --bg-color: #121212;
+    --surface-color: #1e1e1e;
+    --primary-color: #6200ea;
+    --text-color: #ffffff;
+    --text-secondary: #b3b3b3;
+    --card-shadow: 0px 10px 30px rgba(0, 0, 0, 0.5);
+    --border-radius: 16px;
+    --font-family: 'Poppins', sans-serif;
 }
+
 * {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
 }
-html, body {
-    height: 100%;
-}
+
 body {
-    font-family: var(--font-body);
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    margin: 0;
-    padding-top: 70px;
-    padding-bottom: 70px;
-    overflow-x: hidden;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family);
+    overscroll-behavior-y: contain; /* Mencegah pull-to-refresh di Android */
 }
-.background-wallpaper, .background-overlay, .shooting-star {
-    position: fixed;
-    z-index: -1;
-    top: 0;
-    left: 0;
+
+.hidden {
+    display: none !important;
+}
+
+/* ---- BAGIAN 2: ANIMASI MELAYANG (FLOATING) ---- */
+@keyframes float-animation {
+    0% {
+        transform: translateY(0px);
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.4);
+    }
+    50% {
+        transform: translateY(-10px);
+        box-shadow: 0px 15px 30px rgba(0, 0, 0, 0.6);
+    }
+    100% {
+        transform: translateY(0px);
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.4);
+    }
+}
+
+.floating-card {
+    animation: float-animation 6s ease-in-out infinite;
+}
+
+/* ---- BAGIAN 3: LAYAR LOGIN ---- */
+.full-screen {
     width: 100%;
-    height: 100%;
-}
-.background-wallpaper {
-    background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQp9Mnlk9EIAcJEooyOdYJedOwAaIOLBNGiym8WjYLOjTitSUmYBnGviFM&s=10');
-    background-size: cover;
-    background-position: center;
-}
-.background-overlay {
-    background: linear-gradient(to bottom, rgba(10, 4, 26, 0.8), rgba(10, 4, 26, 0.95));
-}
-.shooting-star {
-    top: -50px;
-    width: 2px;
-    height: 100px;
-    background: linear-gradient(to bottom, white, transparent);
-    animation: fall 5s linear infinite;
-    transform: rotate(45deg);
-}
-.shooting-star:nth-child(1) { left: 20%; animation-delay: 0s; animation-duration: 5s; }
-.shooting-star:nth-child(2) { left: 50%; animation-delay: 2s; animation-duration: 4s; }
-.shooting-star:nth-child(3) { left: 80%; animation-delay: 4s; animation-duration: 6s; }
-
-@keyframes fall {
-    from { transform: rotate(45deg) translateY(-100px); }
-    to { transform: rotate(45deg) translateY(120vh); }
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
 }
 
-.main-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: 0.75rem 1rem;
-    background: rgba(10, 4, 26, 0.5);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    z-index: 10;
+.login-card {
+    background-color: var(--surface-color);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    text-align: center;
+    box-shadow: var(--card-shadow);
+}
+
+.login-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--primary-color);
+    margin-bottom: 20px;
+}
+
+.login-card h1 {
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.login-card p {
+    color: var(--text-secondary);
+    margin-bottom: 25px;
+}
+
+#loginBtn {
+    background-color: #4285F4;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: 500;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    border-bottom: 1px solid var(--card-border);
-}
-.header-logo {
-    width: 35px;
-    height: 35px;
-}
-.main-header h1 {
-    font-family: var(--font-title);
-    font-size: 1.5rem;
-    color: var(--accent-secondary);
-    text-shadow: 0 0 10px var(--accent-secondary);
-    margin: 0;
-}
-#app-content {
-    padding: 0.5rem;
-}
-.page-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0.5rem 0.5rem 1.5rem;
-}
-.loader {
-    text-align: center;
-    margin-top: 2rem;
-    font-size: 1.2rem;
-    color: var(--text-secondary);
-}
-.card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    margin: 1rem 0.5rem;
-    padding: 1rem;
-}
-.search-form {
-    display: flex;
-}
-#search-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 0.8rem 1rem;
-    font-size: 1rem;
-    border-radius: 20px 0 0 20px;
-    border: 1px solid var(--accent-secondary);
-    background: rgba(0,0,0,0.3);
-    color: var(--text-primary);
-    border-right: none;
-    outline: none;
-}
-#search-button {
-    background: var(--accent-secondary);
-    border: 1px solid var(--accent-secondary);
-    color: white;
-    padding: 0 1.2rem;
-    border-radius: 0 20px 20px 0;
-    cursor: pointer;
-}
-.anime-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
-}
-.anime-card {
-    border: 2px solid transparent;
-    border-radius: 8px;
-    overflow: hidden;
-    text-decoration: none;
-    color: var(--text-primary);
-    transition: all 0.2s;
-    position: relative;
-    background-color: var(--card-bg);
-    cursor: pointer;
-}
-.anime-card:hover {
-    transform: scale(1.05);
-    border-color: var(--accent-primary);
-}
-.anime-card img {
-    width: 100%;
-    aspect-ratio: 2 / 3;
-    object-fit: cover;
-    display: block;
-}
-.anime-card .title {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-    padding: 1.5rem 0.5rem 0.5rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-.anime-card .episode-badge {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    background-color: var(--accent-primary);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-    z-index: 2;
+    gap: 12px;
+    transition: background-color 0.3s;
 }
 
-#search-results {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-.search-result-card {
-    background-color: var(--card-bg);
-    padding: 1rem;
-    border-radius: 8px;
-    text-decoration: none;
-    color: var(--text-primary);
-    font-weight: 600;
-    border-left: 3px solid var(--accent-secondary);
-    cursor: pointer;
-}
-/* === BAGIAN 1 DARI 2 SELESAI === */
-/* === BAGIAN 2 DARI 2 DIMULAI === */
-.detail-header {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-.detail-header img {
-    width: 100px;
-    border-radius: 8px;
-    flex-shrink: 0;
-}
-.detail-info h2 {
-    font-size: 1.4rem;
-    margin: 0;
-}
-.detail-info p {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-}
-.episode-card {
-    background: rgba(0,0,0,0.2);
-    padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 0.5rem;
-    text-decoration: none;
-    color: var(--text-primary);
-    display: block;
-    border-left: 3px solid var(--accent-secondary);
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-.episode-card:hover {
-    background-color: rgba(142, 68, 173, 0.2);
-}
-.video-container {
-    position: relative;
-    width: 100%;
-    padding-top: 56.25%; /* 16:9 Aspect Ratio */
-    margin-bottom: 1rem;
-}
-.video-container iframe {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-    border-radius: 12px;
-}
-.watch-title {
-    text-align: center;
-    margin-bottom: 1rem;
+#loginBtn:hover {
+    background-color: #357ae8;
 }
 
+#loginBtn img {
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    padding: 2px;
+}
+
+/* ---- BAGIAN 4: STRUKTUR APLIKASI UTAMA ---- */
+#app-container {
+    padding-bottom: 80px; /* Memberi ruang untuk nav di bawah */
+}
+
+main#app {
+    padding: 20px;
+}
+
+/* ---- BAGIAN 5: NAVIGASI BAWAH ---- */
 .bottom-nav {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    display: flex;
-    background: rgba(10, 4, 26, 0.8);
+    height: 70px;
+    background-color: rgba(30, 30, 30, 0.8);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    z-index: 10;
-    border-top: 1px solid var(--card-border);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
-.nav-button {
-    flex-grow: 1;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    padding: 0.5rem 0;
+
+.nav-link {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    font-size: 0.75rem;
-    cursor: pointer;
-}
-.nav-button svg {
-    width: 24px;
-    height: 24px;
-    fill: currentColor;
-}
-.nav-button.active {
-    color: var(--accent-primary);
-}
-.contact-container {
-    text-align: center;
-}
-.contact-page-logo {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 1rem auto;
-    border: 2px solid var(--accent-secondary);
-    border-radius: 12px;
-    padding: 8px;
-}
-.contact-link {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem;
-    border-radius: 8px;
+    justify-content: center;
     text-decoration: none;
-    color: var(--text-primary);
-    background: rgba(0,0,0,0.2);
-    margin-bottom: 0.75rem;
-    border: 1px solid var(--card-border);
-}
-.contact-link img {
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
-}
-.empty-state-card {
-    text-align: center;
-    padding: 40px 20px;
     color: var(--text-secondary);
-    background-color: transparent;
-    border: 1px dashed var(--border-color);
+    flex-grow: 1;
+    transition: color 0.3s;
 }
-.skeleton {
-    background-color: #3a3a3a;
-    border-radius: 8px;
-    position: relative;
+
+.nav-link.active {
+    color: var(--primary-color);
+}
+
+.nav-link svg {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 2px;
+}
+
+.nav-link span {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* ---- BAGIAN 6: KARTU-KARTU & BINGKAI ---- */
+.section-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.card {
+    background-color: var(--surface-color);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: var(--card-shadow);
     overflow: hidden;
+    position: relative;
 }
-.skeleton::before {
-    content: '';
+
+/* Bingkai untuk gambar */
+.img-frame {
+    border-radius: 12px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    display: inline-block; /* Agar border pas dengan gambar */
+    line-height: 0; /* Menghilangkan spasi bawah gambar */
+}
+
+/* Kartu Hero di Halaman Utama */
+.hero-card {
+    text-align: center;
+    padding: 0;
+}
+
+.hero-card .hero-bg {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
     position: absolute;
     top: 0;
-    left: -150%;
-    height: 100%;
-    width: 150%;
-    background: linear-gradient(to right, transparent 0%, #4f4f4f 50%, transparent 100%);
-    animation: shimmer 1.5s infinite;
+    left: 0;
+    z-index: 1;
+    opacity: 0.3;
 }
-@keyframes shimmer {
-    100% { left: 150%; }
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+    padding: 30px;
+    background: linear-gradient(to top, rgba(30,30,30,1) 0%, rgba(30,30,30,0.5) 50%, rgba(30,30,30,0) 100%);
 }
-.skeleton-card {
-    height: 190px;
+
+.hero-logo {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 10px auto;
 }
-/* === BAGIAN 2 DARI 2 SELESAI === */
+
+.hero-logo img {
+    width: 100%;
+}
+
+.hero-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(0,0,0,0.7);
+}
+
+/* Kartu Pencarian */
+.search-card form {
+    display: flex;
+    gap: 10px;
+}
+
+.search-card input {
+    flex-grow: 1;
+    background-color: #333;
+    border: 1px solid #444;
+    color: var(--text-color);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.search-card button {
+    background-color: var(--primary-color);
+    border: none;
+    color: white;
+    padding: 0 20px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+/* Kartu Anime (Template) */
+.anime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px;
+}
+
+.anime-card {
+    background-color: var(--surface-color);
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    color: var(--text-color);
+    overflow: hidden;
+    transition: transform 0.3s;
+}
+
+.anime-card:active {
+    transform: scale(0.95);
+}
+
+.anime-poster {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+}
+
+.anime-title {
+    font-weight: 500;
+    padding: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anime-episode {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 0 10px 10px 10px;
+}
+
+/* ---- BAGIAN 7: HALAMAN AKUN ---- */
+.user-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-card .profile-pic {
+    width: 60px;
+    height: 60px;
+}
+
+.user-card .profile-pic img {
+    width: 100%;
+    border-radius: 50%;
+}
+
+.user-info .username {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.user-info .email {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+/* Kartu Kontak */
+.contact-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    text-decoration: none;
+    color: var(--text-color);
+    transition: background-color 0.3s;
+}
+.contact-card:active {
+    background-color: #333;
+}
+
+.contact-logo-wrapper {
+    width: 40px;
+    height: 40px;
+}
+
+.contact-logo-wrapper img {
+    width: 100%;
+    border-radius: 8px;
+}
+
+.contact-username {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+/* Tombol Logout */
+#logoutBtn-main {
+    width: 100%;
+    background-color: #B00020;
+    border: none;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: var(--border-radius);
+    color: white;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+/* Pesan Kosong */
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state-icon {
+    font-size: 60px;
+    margin-bottom: 20px;
+}
+
+.empty-state-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 10px;
+}
