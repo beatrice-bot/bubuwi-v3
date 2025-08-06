@@ -1,7 +1,6 @@
 {
-  "name": "bubuwi-v3-final",
-  "version": "3.5.0",
-  "description": "Bubuwi-V3 with Pro Engine",
+  "name": "bubuwi-pro-backend",
+  "version": "1.0.0",
   "dependencies": {
     "axios": "^1.7.2",
     "cheerio": "^1.0.0-rc.12",
