@@ -110,7 +110,7 @@ h3 { margin: 16px 12px 8px; font-size: 1.2rem; display: flex; align-items: cente
 
 /* Halaman Akun */
 .account-logo-card { text-align: center; }
-.account-logo { width: 80px; height: 80px; border: 2px solid var(--accent-color); border-radius: 12px; }
+.account-logo { width: 80px; height: 80px; border: 2px solid var(--accent-color); border-radius: 12px; padding: 8px; }
 .account-info-card { display: flex; align-items: center; gap: 16px; }
 .profile-pic { width: 60px; height: 60px; border-radius: 50%; }
 .user-details h2 { font-size: 1.2rem; margin: 0; }
@@ -119,12 +119,16 @@ h3 { margin: 16px 12px 8px; font-size: 1.2rem; display: flex; align-items: cente
     display: flex; align-items: center; gap: 12px; background-color: var(--secondary-bg);
     padding: 10px; border-radius: 8px; margin-top: 8px; text-decoration: none; color: var(--text-primary);
 }
-.contact-item img { width: 28px; height: 28px; border-radius: 8px; }
+.contact-item-logo {
+    width: 28px; height: 28px; padding: 4px; border-radius: 6px;
+    background-color: var(--primary-bg); border: 1px solid var(--border-color);
+}
 .logout-button {
     width: calc(100% - 24px); margin: 20px 12px 0; background-color: #c62828;
     padding: 12px 20px; border: none; color: white; font-weight: bold;
     border-radius: 8px; cursor: pointer; transition: background-color 0.2s;
 }
+.logout-button:hover { background-color: #a12121; }
 
 /* Halaman Episode */
 .back-button {
@@ -167,6 +171,9 @@ h3 { margin: 16px 12px 8px; font-size: 1.2rem; display: flex; align-items: cente
 }
 #comment-submit-btn:disabled { background-color: #555; cursor: not-allowed; }
 .comment { position: relative; display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start; }
+.comment-content { background-color: var(--secondary-bg); padding: 8px 12px; border-radius: 12px; width: 100%; }
+.comment-content .username { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; }
+.comment-content p { word-wrap: break-word; }
 .delete-comment-btn {
     position: absolute; top: 8px; right: 8px; background: none; border: none;
     color: var(--text-secondary); cursor: pointer; font-size: 0.9rem;
