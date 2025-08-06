@@ -582,3 +582,81 @@ main#app {
 .search-result-card:hover {
     background-color: #3a3a3a;
 }
+/* ---- GAYA BARU: Tambahkan di akhir style.css ---- */
+
+/* Tombol Subscribe yang sudah aktif */
+.subscribe-button.subscribed {
+    background-color: #4CAF50; /* Warna hijau */
+    color: white;
+}
+.subscribe-button.subscribed::before {
+    content: '✓ '; /* Tambahkan ikon centang */
+}
+
+/* Header di Halaman Nonton */
+.watch-header {
+    margin-bottom: 15px;
+}
+.watch-anime-title {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+.watch-episode-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+}
+
+/* Navigasi Prev / Next */
+.watch-nav {
+    display: flex;
+    justify-content: space-between;
+    margin: 20px 0;
+}
+.watch-nav-button {
+    flex-basis: 48%;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    border-radius: 8px;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border: 1px solid var(--primary-color);
+}
+/* Tombol yang nonaktif */
+.watch-nav-button:disabled,
+.watch-nav-button.disabled {
+    background-color: #2a2a2a;
+    color: var(--text-secondary);
+    border-color: #444;
+    pointer-events: none;
+}
+
+/* Grid Episode di Halaman Nonton */
+.episode-grid-watch {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+}
+.episode-grid-button {
+    display: block;
+    padding: 10px;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    text-decoration: none;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 500;
+    border: 1px solid #444;
+}
+/* Episode yang sedang aktif */
+.episode-grid-button.active {
+    background-color: var(--primary-color);
+    color: #000;
+    border-color: var(--primary-color);
+    font-weight: 700;
+}
