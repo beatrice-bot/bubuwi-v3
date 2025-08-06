@@ -1,7 +1,7 @@
 :root {
     --primary-bg: #121212; --card-bg: #2a2a2a; --secondary-bg: #1e1e1e;
     --text-primary: #e0e0e0; --text-secondary: #b0b0b0; --accent-color: #6a88e8;
-    --green-color: #4caf50; --border-color: #444;
+    --green-color: #4caf50; --red-color: #c62828; --border-color: #444;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
@@ -52,6 +52,7 @@ body {
     background: none; border: none; color: var(--text-secondary); cursor: pointer;
     display: flex; flex-direction: column; align-items: center;
     gap: 4px; font-size: 0.7rem; transition: color 0.3s;
+    flex-basis: 0; flex-grow: 1;
 }
 .nav-button i { font-size: 1.4rem; }
 .nav-button.active { color: var(--accent-color); }
@@ -89,6 +90,7 @@ h3 { margin: 16px 12px 8px; font-size: 1.2rem; display: flex; align-items: cente
     padding: 12px 20px; border: none; background-color: var(--accent-color);
     color: white; cursor: pointer; border-radius: 0 8px 8px 0;
 }
+#search-button:disabled { background-color: #555; cursor: not-allowed; }
 .anime-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0 12px; }
 .anime-card {
     background-color: var(--card-bg); border-radius: 8px; overflow: hidden;
@@ -114,17 +116,18 @@ h3 { margin: 16px 12px 8px; font-size: 1.2rem; display: flex; align-items: cente
 .account-info-card { display: flex; align-items: center; gap: 16px; }
 .profile-pic { width: 60px; height: 60px; border-radius: 50%; }
 .user-details h2 { font-size: 1.2rem; margin: 0; }
-.user-details p { font-size: 0.9rem; color: var(--text-secondary); margin: 0; }
+.user-details p { font-size: 0.9rem; color: var(--text-secondary); margin: 0; word-break: break-all; }
 .contact-item {
     display: flex; align-items: center; gap: 12px; background-color: var(--secondary-bg);
     padding: 10px; border-radius: 8px; margin-top: 8px; text-decoration: none; color: var(--text-primary);
 }
 .contact-item-logo {
-    width: 28px; height: 28px; padding: 4px; border-radius: 6px;
+    width: 28px; height: 28px; padding: 4px; border-radius: 8px;
     background-color: var(--primary-bg); border: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 .logout-button {
-    width: calc(100% - 24px); margin: 20px 12px 0; background-color: #c62828;
+    width: calc(100% - 24px); margin: 20px 12px 0; background-color: var(--red-color);
     padding: 12px 20px; border: none; color: white; font-weight: bold;
     border-radius: 8px; cursor: pointer; transition: background-color 0.2s;
 }
@@ -179,3 +182,13 @@ h3 { margin: 16px 12px 8px; font-size: 1.2rem; display: flex; align-items: cente
     color: var(--text-secondary); cursor: pointer; font-size: 0.9rem;
 }
 .empty-state-card { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+.skeleton {
+    background-color: #3a3a3a; border-radius: 8px; position: relative; overflow: hidden;
+}
+.skeleton::before {
+    content: ''; position: absolute; top: 0; left: -150%; height: 100%; width: 150%;
+    background: linear-gradient(to right, transparent 0%, #4f4f4f 50%, transparent 100%);
+    animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer { 100% { left: 150%; } }
+.skeleton-card { height: 190px; }
