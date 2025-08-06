@@ -28,15 +28,9 @@ html, body {
 
 /* ---- BAGIAN 2: ANIMASI MELAYANG (FLOATING) ---- */
 @keyframes float-animation {
-    0% {
-        transform: translateY(0px);
-    }
-    50% {
-        transform: translateY(-8px);
-    }
-    100% {
-        transform: translateY(0px);
-    }
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+    100% { transform: translateY(0px); }
 }
 
 .floating-card {
@@ -54,7 +48,7 @@ html, body {
     align-items: center;
     min-height: 100vh; /* PERBAIKAN: Gunakan min-height agar tidak rusak di mobile */
     padding: 20px;
-    box-sizing: border-box; /* Pastikan padding tidak menambah ukuran */
+    box-sizing: border-box;
 }
 
 /* Kartu login */
@@ -308,6 +302,7 @@ main#app {
     overflow: hidden;
     transition: transform 0.3s;
     cursor: pointer;
+    display: block; /* Pastikan tag <a> berperilaku seperti block */
 }
 
 .anime-card:active {
@@ -439,4 +434,151 @@ main#app {
     font-weight: 600;
     color: var(--text-color);
     margin-bottom: 8px;
+}
+/* ---- BAGIAN 8: GAYA BARU UNTUK HALAMAN DETAIL EPISODE ---- */
+
+/* Header Halaman Detail (Poster + Info) */
+.detail-header {
+    display: flex;
+    flex-direction: column; /* Tumpuk ke bawah di layar kecil */
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.detail-poster {
+    width: 120px; /* Lebar poster di halaman detail */
+    align-self: center; /* Pusatkan poster */
+    border-radius: 8px;
+}
+
+.detail-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center; /* Pusatkan teks di layar kecil */
+}
+
+.detail-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    margin-bottom: 8px;
+    line-height: 1.2;
+}
+
+.episode-count {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+}
+
+/* Tombol Subscribe */
+.subscribe-button {
+    background-color: var(--primary-color);
+    color: var(--bg-color); /* Warna teks kontras */
+    font-weight: 600;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.subscribe-button:active {
+    transform: scale(0.95);
+}
+
+/* Daftar Episode */
+.episode-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.episode-card {
+    display: block;
+    background-color: #2a2a2a;
+    padding: 15px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-color);
+    font-weight: 500;
+    border-left: 4px solid var(--primary-color);
+    transition: background-color 0.2s;
+}
+
+.episode-card:hover {
+    background-color: #3a3a3a;
+}
+
+/* Tampilan di layar lebih besar (tablet/desktop) */
+@media (min-width: 600px) {
+    .detail-header {
+        flex-direction: row; /* Berdampingan di layar besar */
+        text-align: left; /* Teks rata kiri */
+    }
+    .detail-poster {
+        align-self: flex-start; /* Poster rata kiri */
+    }
+}
+
+
+/* ---- BAGIAN 9: GAYA BARU UNTUK HALAMAN NONTON VIDEO ---- */
+.watch-page {
+    padding: 10px;
+}
+
+.watch-title {
+    font-size: 20px;
+    margin-bottom: 15px;
+}
+
+.video-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* Aspect Ratio 16:9 */
+    height: 0;
+    background-color: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* Tombol kembali */
+.back-button {
+    width: 100%;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 600;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+
+/* ---- BAGIAN 10: GAYA BARU UNTUK KARTU HASIL PENCARIAN ---- */
+.search-result-card {
+    display: block;
+    padding: 15px;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: var(--text-color);
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.search-result-card:hover {
+    background-color: #3a3a3a;
 }
