@@ -1,5 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { parseStringPromise } = require('xml2js');
+
 const BASE_URL = 'https://samehadaku.li';
 
 const createResponse = (body, statusCode = 200) => ({
@@ -40,23 +42,46 @@ async function scrapeHomepage() {
     $('.listupd.normal .bs').each((i, el) => {
         const item = $(el).find('.bsx a');
         if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
-            latest.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src'), episode: item.find('.epx').text().trim() });
+            latest.push({ 
+                title: item.attr('title').replace(/ Nonton.*/, ''),
+                seriesTitle: item.find('.tt').clone().children().remove().end().text().trim(),
+                url: item.attr('href'), 
+                poster: item.find('img').attr('src'), 
+                episode: item.find('.epx').text().trim() 
+            });
         }
     });
     return { trending, latest };
 }
 
 async function scrapeSearch(query) {
-    const html = await getHTML(`${BASE_URL}/?s=${encodeURIComponent(query)}`);
-    const $ = cheerio.load(html);
-    const results = [];
-    $('.listupd .bs').each((i, el) => {
-        const item = $(el).find('.bsx a');
-        if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
-            results.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src'), episode: item.find('.epx').text().trim() });
-        }
-    });
-    return results;
+    const feedUrl = `${BASE_URL}/search/${encodeURIComponent(query)}/feed/rss2/`;
+    try {
+        const { data } = await axios.get(feedUrl, { timeout: 5000 });
+        const parsed = await parseStringPromise(data);
+        if (!parsed.rss.channel[0].item) return [];
+        
+        return parsed.rss.channel[0].item.map(item => {
+            const $ = cheerio.load(item.description[0]);
+            return {
+                title: item.title[0],
+                url: item.link[0],
+                poster: $('img').attr('src') || null
+            };
+        });
+    } catch (e) {
+        console.error("RSS Search failed, falling back to HTML scrape:", e.message);
+        const html = await getHTML(`${BASE_URL}/?s=${encodeURIComponent(query)}`);
+        const $ = cheerio.load(html);
+        const results = [];
+        $('.listupd .bs').each((i, el) => {
+            const item = $(el).find('.bsx a');
+            if (item.attr('title') && item.attr('href')) {
+                results.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src') });
+            }
+        });
+        return results;
+    }
 }
 
 async function scrapeEpisodes(url) {
@@ -72,7 +97,7 @@ async function scrapeEpisodes(url) {
     return {
         title: $('.infox h1.entry-title').text().trim(),
         poster: $('.thumbook .thumb img').attr('src'),
-        synopsis: $('.entry-content p').text().trim(),
+        synopsis: $('.entry-content p').first().text().trim(),
         episodes: episodes.reverse(),
     };
 }
