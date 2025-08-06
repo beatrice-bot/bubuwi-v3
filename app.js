@@ -4,8 +4,20 @@
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-const auth = getAuth();
-const db = getDatabase();
+// GANTI DENGAN KONFIGURASI FIREBASE ANDA SENDIRI
+const firebaseConfig = {
+    apiKey: "ISI_DENGAN_API_KEY_ANDA",
+    authDomain: "ISI_DENGAN_AUTH_DOMAIN_ANDA",
+    projectId: "ISI_DENGAN_PROJECT_ID_ANDA",
+    storageBucket: "ISI_DENGAN_STORAGE_BUCKET_ANDA",
+    messagingSenderId: "ISI_DENGAN_MESSAGING_SENDER_ID_ANDA",
+    appId: "ISI_DENGAN_APP_ID_ANDA"
+};
+// Inisialisasi Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
 
 // ==========================================================
 // BAGIAN 2: SELEKTOR DOM (Mengambil elemen HTML)
@@ -39,7 +51,6 @@ const LocalDataManager = {
         localStorage.setItem('bubuwi_history', JSON.stringify(history));
     }
 };
-
 // ==========================================================
 // BAGIAN 4: AUTENTIKASI FIREBASE
 // ==========================================================
@@ -55,7 +66,7 @@ onAuthStateChanged(auth, (user) => {
             photoURL: user.photoURL,
             lastLogin: new Date().toISOString()
         });
-        
+
         loginScreen.classList.add('hidden');
         appContainer.classList.remove('hidden');
         navigateTo(window.location.hash || '#/');
@@ -84,13 +95,18 @@ window.handleLogout = handleLogout;
 // ==========================================================
 function navigateTo(hash) {
     const page = hash.substring(2) || 'utama';
-    
+
     navLinks.forEach(link => {
         link.classList.remove('active');
         if (link.dataset.page === page) {
             link.classList.add('active');
         }
     });
+    // Scroll ke atas setiap pindah halaman
+    window.scrollTo(0, 0);
+
+    // Hapus event listener lama sebelum merender halaman baru untuk mencegah kebocoran memori
+    appElement.innerHTML = '';
 
     switch(page) {
         case 'utama':
@@ -116,7 +132,6 @@ navLinks.forEach(link => {
 });
 
 window.addEventListener('hashchange', () => navigateTo(window.location.hash));
-
 // ==========================================================
 // BAGIAN 6: FUNGSI RENDER (Menggambar setiap Halaman)
 // ==========================================================
@@ -132,99 +147,125 @@ function createAnimeCard(anime) {
     } else {
         episodeElement.remove();
     }
-    // card.dataset.animeLink = anime.link; // Simpan link untuk navigasi detail
+    // PERBAIKAN: Tambahkan event listener untuk menangani klik
+    card.addEventListener('click', () => {
+        alert(`Anda mengklik: ${anime.title}\nLink: ${anime.link || 'Tidak ada'}`);
+        // Di sini nantinya akan ada logika untuk pindah ke halaman detail anime
+        // Contoh: LocalDataManager.addHistory(anime);
+    });
     return card;
 }
 
 // 6.1. Render Halaman UTAMA
-async function renderHalamanUtama() { // Tambahkan async
-    const heroHTML = `...`; // (Sama seperti sebelumnya)
-    const searchHTML = `...`; // (Sama seperti sebelumnya)
-    const history = LocalDataManager.getHistory();
-    let historyHTML = `...`; // (Sama seperti sebelumnya)
+async function renderHalamanUtama() {
+    // Tampilkan loader dulu
+    appElement.innerHTML = `<div class="loading-screen"><div class="loader"></div><p>Memuat Data...</p></div>`;
 
-    // --- PERBAIKAN 1: PANGGIL API SCRAPING UNTUK RILISAN BARU ---
+    // PERBAIKAN: Definisikan semua string HTML dengan benar
+    const heroHTML = `
+        <div class="card hero-card floating-card">
+            <img src="https://files.catbox.moe/03g5k9.gif" class="hero-bg" alt="Hero Background">
+            <div class="hero-content">
+                <div class="hero-logo img-frame">
+                    <img src="https://i.imgur.com/9uK2OPw.png" alt="Logo Bubuwi">
+                </div>
+                <h2 class="hero-title">Bubuwi-V3</h2>
+            </div>
+        </div>`;
+
+    const searchHTML = `
+        <div class="card search-card" style="animation-delay: 0.1s;">
+            <form id="search-form">
+                <input type="search" id="search-input" placeholder="Cari judul anime...">
+                <button type="submit">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                </button>
+            </form>
+        </div>`;
+
+    const history = LocalDataManager.getHistory();
+    let historyHTML = `<h3 class="section-title">Terakhir Ditonton</h3>`;
+    if (history.length > 0) {
+        historyHTML += `<div class="anime-grid new-releases-grid">`; // Gunakan grid kecil
+        history.forEach(anime => {
+            historyHTML += createAnimeCard(anime).outerHTML;
+        });
+        historyHTML += `</div>`;
+    } else {
+        historyHTML += `<p class="empty-state">Belum ada riwayat tontonan.</p>`;
+    }
+
     let newReleaseHTML = `<h3 class="section-title" style="margin-top: 30px;">Baru Rilis</h3>`;
     try {
-        appElement.innerHTML = `<div class="loading-container"><div class="loader"></div><p>Memuat Data...</p></div>`; // Tampilkan loader
-        
-        const response = await fetch('/.netlify/functions/scrape'); // Tidak perlu endpoint karena defaultnya home
-        if (!response.ok) throw new Error('Gagal mengambil data dari server.');
-        
+        const response = await fetch('/.netlify/functions/scrape');
+        if (!response.ok) throw new Error('Gagal mengambil data rilis baru.');
         const newReleases = await response.json();
-
+        
         let animeCardsHTML = '';
-        newReleases.results.forEach(anime => {
-            const card = createAnimeCard({
-                poster: anime.thumbnail,
-                title: anime.seriesTitle,
-                link: anime.link // Menyimpan link untuk masa depan
+        if(newReleases.results && newReleases.results.length > 0){
+             newReleases.results.forEach(anime => {
+                animeCardsHTML += createAnimeCard({
+                    poster: anime.thumbnail,
+                    title: anime.seriesTitle,
+                    link: anime.link
+                }).outerHTML;
             });
-            card.classList.add('floating-card');
-            animeCardsHTML += card.outerHTML;
-        });
-        newReleaseHTML += `<div class="anime-grid">${animeCardsHTML}</div>`;
+            newReleaseHTML += `<div class="anime-grid new-releases-grid">${animeCardsHTML}</div>`;
+        } else {
+            throw new Error('Tidak ada data rilis baru.');
+        }
 
     } catch (error) {
         console.error("Error fetching new releases:", error);
-        newReleaseHTML += `<p class="empty-state">Gagal memuat data rilis baru. Coba lagi nanti.</p>`;
+        newReleaseHTML += `<p class="empty-state">Gagal memuat data rilis baru.</p>`;
     }
-
-    // Gabungkan semua bagian dan masukkan ke halaman
+    
+    // PERBAIKAN: Gabungkan semua HTML lalu render ke DOM sekaligus
     appElement.innerHTML = `
         ${heroHTML}
         ${searchHTML}
         <div class="card" id="history-section">${historyHTML}</div>
-        <div class="card" id="new-release-section">${newReleaseHTML}</div>
+        <div class="card" id="search-results-section">${newReleaseHTML}</div>
     `;
 
-    // --- PERBAIKAN 2: FUNGSIKAN FORM PENCARIAN ---
+    // PERBAIKAN: Tambahkan event listener SETELAH elemennya ada di DOM
     const searchForm = document.getElementById('search-form');
     searchForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const query = document.getElementById('search-input').value.trim();
         if (!query) return;
 
-        // Tampilkan loader di bagian rilis baru
-        const newReleaseSection = document.getElementById('new-release-section');
-        newReleaseSection.innerHTML = `<div class="loading-container"><div class="loader"></div><p>Mencari "${query}"...</p></div>`;
+        const resultsSection = document.getElementById('search-results-section');
+        resultsSection.innerHTML = `<div class="loader"></div><p style="text-align:center;">Mencari "${query}"...</p>`;
 
         try {
             const response = await fetch(`/.netlify/functions/scrape?search=${encodeURIComponent(query)}`);
             if (!response.ok) throw new Error('Gagal melakukan pencarian.');
-
             const searchResults = await response.json();
             
-            let searchResultHTML = `<h3 class="section-title">Hasil Pencarian: ${query}</h3>`;
+            let searchResultHTML = `<h3 class="section-title">Hasil Pencarian</h3>`;
             if (searchResults.results && searchResults.results.length > 0) {
                  let animeCardsHTML = '';
                  searchResults.results.forEach(anime => {
-                     const card = createAnimeCard({
-                         poster: anime.thumbnail, // thumbnail mungkin null dari search
+                     animeCardsHTML += createAnimeCard({
+                         poster: anime.thumbnail,
                          title: anime.title,
                          link: anime.link
-                     });
-                     card.classList.add('floating-card');
-                     animeCardsHTML += card.outerHTML;
+                     }).outerHTML;
                  });
                  searchResultHTML += `<div class="anime-grid">${animeCardsHTML}</div>`;
             } else {
                  searchResultHTML += `<p class="empty-state">Tidak ada hasil ditemukan untuk "${query}".</p>`;
             }
-            // Ganti konten rilis baru dengan hasil pencarian
-            newReleaseSection.innerHTML = searchResultHTML;
-
+            resultsSection.innerHTML = searchResultHTML;
         } catch (error) {
             console.error("Error searching anime:", error);
-            newReleaseSection.innerHTML = `<p class="empty-state">Terjadi kesalahan saat mencari. Coba lagi.</p>`;
+            resultsSection.innerHTML = `<p class="empty-state">Terjadi kesalahan saat mencari.</p>`;
         }
     });
 }
-
-
 // 6.2. Render Halaman SUBSCRIBE
 function renderHalamanSubscribe() {
-    // ... (Kode ini sudah benar, tidak perlu diubah) ...
     const subscriptions = LocalDataManager.getSubscriptions();
     let contentHTML = `<h1 class="section-title">Langganan Saya</h1>`;
 
@@ -241,7 +282,7 @@ function renderHalamanSubscribe() {
             <div class="empty-state">
                 <div class="empty-state-icon">⭐</div>
                 <h2 class="empty-state-title">Daftar Langganan Kosong</h2>
-                <p>Anda belum berlangganan anime apapun. Tekan tombol 'Subscribe' di halaman detail anime untuk menambahkannya di sini.</p>
+                <p>Anda belum berlangganan anime apapun.</p>
             </div>
         `;
     }
@@ -250,7 +291,6 @@ function renderHalamanSubscribe() {
 
 // 6.3. Render Halaman AKUN
 function renderHalamanAkun() {
-    // ... (Kode ini juga sudah benar, tidak perlu diubah) ...
     if (!currentUser) return;
 
     const userCardHTML = `
@@ -289,20 +329,3 @@ function renderHalamanAkun() {
         ${logoutButtonHTML}
     `;
 }
-
-// Tambahkan beberapa gaya untuk loader
-const style = document.createElement('style');
-style.textContent = `
-.loading-container { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
-.loader {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid var(--primary-color);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 15px auto;
-}
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-`;
-document.head.appendChild(style);
