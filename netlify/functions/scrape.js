@@ -1,5 +1,3 @@
-// netlify/functions/scrape.js (Versi Final Anti-Crash)
-
 const axios = require('axios');
 const cheerio = require('cheerio');
 const BASE_URL = 'https://samehadaku.li';
@@ -10,30 +8,22 @@ const createResponse = (body, statusCode = 200) => ({
   body: JSON.stringify(body),
 });
 
-// Fungsi untuk mengambil HTML dengan timeout yang jelas
 async function getHTML(url) {
     try {
-        // Beri batas waktu 8 detik. Jika lebih, akan gagal.
         const response = await axios.get(url, { timeout: 8000 });
         return response.data;
     } catch (error) {
-        // Jika error karena timeout, beri pesan yang jelas.
-        if (error.code === 'ECONNABORTED') {
-            console.error(`Timeout saat mencoba mengakses: ${url}`);
-            throw new Error('Request Timeout');
-        }
-        console.error(`Gagal mengambil HTML dari ${url}:`, error.message);
+        if (error.code === 'ECONNABORTED') throw new Error('Request Timeout');
         throw new Error('Failed to fetch HTML');
     }
 }
 
 async function scrapeHomepage() {
-    const data = await getHTML(BASE_URL);
-    const $ = cheerio.load(data);
-    let latest = [];
+    const html = await getHTML(BASE_URL);
+    const $ = cheerio.load(html);
+    const latest = [];
     let trending = {};
 
-    // Scrape Trending dengan proteksi error
     try {
         const trendingEl = $('.trending .tdb a');
         if (trendingEl.length) {
@@ -45,70 +35,70 @@ async function scrapeHomepage() {
                 poster: poster
             };
         }
-    } catch (e) {
-        console.error("Gagal scrape bagian Trending:", e.message);
-        trending = { error: "Gagal memuat trending." };
-    }
+    } catch (e) { console.error("Gagal scrape Trending:", e.message); }
 
-    // Scrape Rilis Terbaru dengan proteksi error
-    try {
-        $('.listupd.normal .bs').each((i, el) => {
-            const item = $(el).find('.bsx a');
-            if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
-                latest.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src'), episode: item.find('.epx').text().trim() });
-            }
-        });
-    } catch (e) {
-        console.error("Gagal scrape bagian Rilis Terbaru:", e.message);
-        if (latest.length === 0) latest.push({ error: "Gagal memuat rilis terbaru." });
-    }
-    
+    $('.listupd.normal .bs').each((i, el) => {
+        const item = $(el).find('.bsx a');
+        if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
+            latest.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src'), episode: item.find('.epx').text().trim() });
+        }
+    });
     return { trending, latest };
 }
 
+async function scrapeSearch(query) {
+    const html = await getHTML(`${BASE_URL}/?s=${encodeURIComponent(query)}`);
+    const $ = cheerio.load(html);
+    const results = [];
+    $('.listupd .bs').each((i, el) => {
+        const item = $(el).find('.bsx a');
+        if (item.attr('title') && item.attr('href') && item.find('img').attr('src')) {
+            results.push({ title: item.attr('title'), url: item.attr('href'), poster: item.find('img').attr('src'), episode: item.find('.epx').text().trim() });
+        }
+    });
+    return results;
+}
+
 async function scrapeEpisodes(url) {
-    const data = await getHTML(decodeURIComponent(url));
-    const $ = cheerio.load(data);
+    const html = await getHTML(decodeURIComponent(url));
+    const $ = cheerio.load(html);
     const episodes = [];
-    $('#mainepisode .episodelist ul li').each((i, el) => {
+    $('.eplister ul li').each((i, el) => {
         const item = $(el).find('a');
-        if (item.find('h3').text().trim() && item.attr('href')) {
-            episodes.push({ title: item.find('h3').text().trim(), url: item.attr('href') });
+        if (item.find('.epl-title').text().trim() && item.attr('href')) {
+            episodes.push({ title: item.find('.epl-title').text().trim(), url: item.attr('href') });
         }
     });
     return {
-        title: $('.single-info .infox .infolimit h2').text().trim(),
-        poster: $('.single-info .thumb img').attr('src'),
-        synopsis: $('.desc.mindes').text().trim(),
+        title: $('.infox h1.entry-title').text().trim(),
+        poster: $('.thumbook .thumb img').attr('src'),
+        synopsis: $('.entry-content p').text().trim(),
         episodes: episodes.reverse(),
     };
 }
 
 async function scrapeWatch(url) {
-    const data = await getHTML(decodeURIComponent(url));
-    const $ = cheerio.load(data);
+    const html = await getHTML(decodeURIComponent(url));
+    const $ = cheerio.load(html);
     return {
         videoEmbedUrl: $('#pembed iframe').attr('src'),
-        prevEpisodeUrl: $('.naveps .nvs a[rel="prev"]').attr('href'),
-        nextEpisodeUrl: $('.naveps .nvs a[rel="next"]').attr('href'),
+        prevEpisodeUrl: $('.naveps a[rel="prev"]').attr('href'),
+        nextEpisodeUrl: $('.naveps a[rel="next"]').attr('href'),
     };
 }
 
 exports.handler = async (event) => {
-  const { target, url } = event.queryStringParameters;
-  console.log(`[INFO] Function dipanggil dengan target: ${target}`);
+  const { target, url, query } = event.queryStringParameters;
   try {
     let responseData;
     if (target === 'home') responseData = await scrapeHomepage();
     else if (target === 'episodes') responseData = await scrapeEpisodes(url);
     else if (target === 'watch') responseData = await scrapeWatch(url);
+    else if (target === 'search') responseData = await scrapeSearch(query);
     else return createResponse({ error: 'Invalid target' }, 400);
-    
-    console.log(`[SUCCESS] Berhasil scrape target: ${target}`);
     return createResponse(responseData);
-
   } catch (error) {
-    console.error(`[FATAL ERROR] Gagal total pada target ${target}:`, error.message);
-    return createResponse({ error: `Sumber data tidak merespon atau error: ${error.message}` }, 504); // 504 Gateway Timeout
+    console.error(`Scraping Error on target ${target}:`, error.message);
+    return createResponse({ error: `Sumber data tidak merespon atau error: ${error.message}` }, 504);
   }
 };
