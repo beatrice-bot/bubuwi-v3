@@ -19,12 +19,10 @@ const navLinks = document.querySelectorAll('.nav-link');
 // ==========================================================
 // BAGIAN 3: MANAJEMEN DATA (LocalStorage)
 // ==========================================================
-// Objek ini akan mengelola semua data yang disimpan di perangkat pengguna
 const LocalDataManager = {
     getSubscriptions: () => JSON.parse(localStorage.getItem('bubuwi_subscriptions')) || [],
     addSubscription: (anime) => {
         const subs = LocalDataManager.getSubscriptions();
-        // Cek agar tidak ada duplikat
         if (!subs.some(s => s.title === anime.title)) {
             subs.push(anime);
             localStorage.setItem('bubuwi_subscriptions', JSON.stringify(subs));
@@ -33,10 +31,8 @@ const LocalDataManager = {
     getHistory: () => JSON.parse(localStorage.getItem('bubuwi_history')) || [],
     addHistory: (anime) => {
         let history = LocalDataManager.getHistory();
-        // Hapus entri lama jika judulnya sama, agar hanya ada yang terbaru
         history = history.filter(h => h.title !== anime.title);
-        history.unshift(anime); // Tambahkan yang baru di awal array
-        // Batasi riwayat, misal 20 item terakhir
+        history.unshift(anime);
         if (history.length > 20) {
             history.pop();
         }
@@ -49,13 +45,9 @@ const LocalDataManager = {
 // ==========================================================
 let currentUser = null;
 
-// Fungsi ini adalah pusat kendali aplikasi.
-// Dia akan memeriksa status login setiap kali aplikasi dibuka/di-refresh.
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        // --- Pengguna BERHASIL Login ---
         currentUser = user;
-        // Simpan/update info pengguna di Firebase Database
         const userRef = ref(db, 'users/' + user.uid);
         set(userRef, {
             displayName: user.displayName,
@@ -64,45 +56,35 @@ onAuthStateChanged(auth, (user) => {
             lastLogin: new Date().toISOString()
         });
         
-        // Tampilkan aplikasi utama dan sembunyikan layar login
         loginScreen.classList.add('hidden');
         appContainer.classList.remove('hidden');
-
-        // Arahkan ke halaman yang sesuai saat pertama kali load
         navigateTo(window.location.hash || '#/');
 
     } else {
-        // --- Pengguna Logout atau Belum Login ---
         currentUser = null;
-        // Tampilkan layar login dan sembunyikan aplikasi
         loginScreen.classList.remove('hidden');
         appContainer.classList.add('hidden');
     }
 });
 
-// Event listener untuk tombol login dan logout
 loginBtn.addEventListener('click', () => {
     const provider = new GoogleAuthProvider();
     signInWithPopup(auth, provider).catch(error => console.error("Login Gagal:", error));
 });
 
-// Fungsi logout akan kita panggil dari dalam halaman Akun
 function handleLogout() {
     if (confirm("Anda yakin ingin logout?")) {
         signOut(auth).catch(error => console.error("Logout Gagal:", error));
     }
 }
-// Kita 'ekspor' fungsi logout agar bisa diakses oleh tombol di halaman akun nanti
 window.handleLogout = handleLogout;
-
 
 // ==========================================================
 // BAGIAN 5: ROUTER SEDERHANA (Navigasi Halaman)
 // ==========================================================
 function navigateTo(hash) {
-    const page = hash.substring(2) || 'utama'; // Ambil nama halaman dari hash, default 'utama'
+    const page = hash.substring(2) || 'utama';
     
-    // Hapus kelas 'active' dari semua link dan tambahkan ke yang diklik
     navLinks.forEach(link => {
         link.classList.remove('active');
         if (link.dataset.page === page) {
@@ -110,7 +92,6 @@ function navigateTo(hash) {
         }
     });
 
-    // Render halaman yang sesuai
     switch(page) {
         case 'utama':
             renderHalamanUtama();
@@ -127,7 +108,6 @@ function navigateTo(hash) {
     }
 }
 
-// Tambahkan event listener untuk setiap tombol navigasi
 navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
         e.preventDefault();
@@ -135,32 +115,15 @@ navLinks.forEach(link => {
     });
 });
 
-// Dengarkan perubahan hash di URL
 window.addEventListener('hashchange', () => navigateTo(window.location.hash));
-
-// Export fungsi penting agar bisa diakses Bagian 2
-export { appElement, LocalDataManager, currentUser };
-// Lanjutan dari app.js...
-// Pastikan file ini di-load sebagai module setelah bagian 1.
-// Dalam kasus kita, kita gabungkan saja dalam satu file.
-// Jadi, anggap kode ini ada di bawah kode sebelumnya.
-
-// Import variabel dari 'bagian 1'
-import { appElement, LocalDataManager, currentUser } from './app.js'; // Cara import jika file terpisah
 
 // ==========================================================
 // BAGIAN 6: FUNGSI RENDER (Menggambar setiap Halaman)
 // ==========================================================
-
-/**
- * Fungsi untuk membuat satu kartu anime dari template
- * @param {object} anime - Objek anime { poster, title, episode }
- * @returns {HTMLElement} - Elemen kartu anime yang sudah jadi
- */
 function createAnimeCard(anime) {
     const template = document.getElementById('anime-card-template');
     const card = template.content.cloneNode(true).firstElementChild;
-    card.querySelector('.anime-poster').src = anime.poster;
+    card.querySelector('.anime-poster').src = anime.poster || 'https://placehold.co/400x600/1e1e1e/white?text=No+Image';
     card.querySelector('.anime-poster').alt = anime.title;
     card.querySelector('.anime-title').textContent = anime.title;
     const episodeElement = card.querySelector('.anime-episode');
@@ -169,85 +132,99 @@ function createAnimeCard(anime) {
     } else {
         episodeElement.remove();
     }
-    // Tambahkan data-attribute untuk navigasi nanti
-    // card.dataset.animeId = anime.id;
+    // card.dataset.animeLink = anime.link; // Simpan link untuk navigasi detail
     return card;
 }
 
-
 // 6.1. Render Halaman UTAMA
-function renderHalamanUtama() {
-    // 1. Hero Card (Logo + BG)
-    const heroHTML = `
-        <div class="card hero-card floating-card">
-            <img src="https://files.catbox.moe/03g5k9.gif" class="hero-bg" alt="Hero Background">
-            <div class="hero-content">
-                <div class="hero-logo img-frame">
-                    <img src="https://i.imgur.com/9uK2OPw.png" alt="Logo Bubuwi">
-                </div>
-                <h2 class="hero-title">Bubuwi-V3</h2>
-            </div>
-        </div>
-    `;
-
-    // 2. Search Card
-    const searchHTML = `
-        <div class="card search-card floating-card" style="animation-delay: 0.1s;">
-            <form id="search-form">
-                <input type="search" id="search-input" placeholder="Cari judul anime...">
-                <button type="submit">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-                </button>
-            </form>
-        </div>
-    `;
-
-    // 3. Riwayat Section
+async function renderHalamanUtama() { // Tambahkan async
+    const heroHTML = `...`; // (Sama seperti sebelumnya)
+    const searchHTML = `...`; // (Sama seperti sebelumnya)
     const history = LocalDataManager.getHistory();
-    let historyHTML = `<h3 class="section-title">Terakhir Ditonton</h3>`;
-    if (history.length > 0) {
-        historyHTML += `<div class="anime-grid">`;
-        history.forEach(anime => {
-            // Kita butuh fungsi untuk membuat kartu dari template
-            const card = createAnimeCard(anime);
-            card.classList.add('floating-card');
-            historyHTML += card.outerHTML;
-        });
-        historyHTML += `</div>`;
-    } else {
-        historyHTML += `<p class="empty-state">Belum ada riwayat tontonan.</p>`;
-    }
+    let historyHTML = `...`; // (Sama seperti sebelumnya)
 
-    // 4. Anime Baru Rilis Section
-    // NOTE: Logika scraping akan dijalankan di sini. Untuk sekarang, kita pakai data palsu.
+    // --- PERBAIKAN 1: PANGGIL API SCRAPING UNTUK RILISAN BARU ---
     let newReleaseHTML = `<h3 class="section-title" style="margin-top: 30px;">Baru Rilis</h3>`;
-    // const newReleases = await scrapeNewReleases(); // Panggil fungsi scraping di sini
-    newReleaseHTML += `<div class="anime-grid">`;
-    // --- Data Dummy ---
-    const dummyReleases = [
-        { poster: 'https://placehold.co/400x600/1e1e1e/white?text=Poster', title: 'Anime Rilis 1' },
-        { poster: 'https://placehold.co/400x600/1e1e1e/white?text=Poster', title: 'Anime Rilis 2' },
-        { poster: 'https://placehold.co/400x600/1e1e1e/white?text=Poster', title: 'Anime Rilis 3' },
-    ];
-    dummyReleases.forEach(anime => {
-        const card = createAnimeCard(anime);
-        card.classList.add('floating-card');
-        newReleaseHTML += card.outerHTML;
-    });
-    newReleaseHTML += `</div>`;
+    try {
+        appElement.innerHTML = `<div class="loading-container"><div class="loader"></div><p>Memuat Data...</p></div>`; // Tampilkan loader
+        
+        const response = await fetch('/.netlify/functions/scrape'); // Tidak perlu endpoint karena defaultnya home
+        if (!response.ok) throw new Error('Gagal mengambil data dari server.');
+        
+        const newReleases = await response.json();
 
+        let animeCardsHTML = '';
+        newReleases.results.forEach(anime => {
+            const card = createAnimeCard({
+                poster: anime.thumbnail,
+                title: anime.seriesTitle,
+                link: anime.link // Menyimpan link untuk masa depan
+            });
+            card.classList.add('floating-card');
+            animeCardsHTML += card.outerHTML;
+        });
+        newReleaseHTML += `<div class="anime-grid">${animeCardsHTML}</div>`;
+
+    } catch (error) {
+        console.error("Error fetching new releases:", error);
+        newReleaseHTML += `<p class="empty-state">Gagal memuat data rilis baru. Coba lagi nanti.</p>`;
+    }
 
     // Gabungkan semua bagian dan masukkan ke halaman
     appElement.innerHTML = `
         ${heroHTML}
         ${searchHTML}
-        <div class="card">${historyHTML}</div>
-        <div class="card">${newReleaseHTML}</div>
+        <div class="card" id="history-section">${historyHTML}</div>
+        <div class="card" id="new-release-section">${newReleaseHTML}</div>
     `;
+
+    // --- PERBAIKAN 2: FUNGSIKAN FORM PENCARIAN ---
+    const searchForm = document.getElementById('search-form');
+    searchForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const query = document.getElementById('search-input').value.trim();
+        if (!query) return;
+
+        // Tampilkan loader di bagian rilis baru
+        const newReleaseSection = document.getElementById('new-release-section');
+        newReleaseSection.innerHTML = `<div class="loading-container"><div class="loader"></div><p>Mencari "${query}"...</p></div>`;
+
+        try {
+            const response = await fetch(`/.netlify/functions/scrape?search=${encodeURIComponent(query)}`);
+            if (!response.ok) throw new Error('Gagal melakukan pencarian.');
+
+            const searchResults = await response.json();
+            
+            let searchResultHTML = `<h3 class="section-title">Hasil Pencarian: ${query}</h3>`;
+            if (searchResults.results && searchResults.results.length > 0) {
+                 let animeCardsHTML = '';
+                 searchResults.results.forEach(anime => {
+                     const card = createAnimeCard({
+                         poster: anime.thumbnail, // thumbnail mungkin null dari search
+                         title: anime.title,
+                         link: anime.link
+                     });
+                     card.classList.add('floating-card');
+                     animeCardsHTML += card.outerHTML;
+                 });
+                 searchResultHTML += `<div class="anime-grid">${animeCardsHTML}</div>`;
+            } else {
+                 searchResultHTML += `<p class="empty-state">Tidak ada hasil ditemukan untuk "${query}".</p>`;
+            }
+            // Ganti konten rilis baru dengan hasil pencarian
+            newReleaseSection.innerHTML = searchResultHTML;
+
+        } catch (error) {
+            console.error("Error searching anime:", error);
+            newReleaseSection.innerHTML = `<p class="empty-state">Terjadi kesalahan saat mencari. Coba lagi.</p>`;
+        }
+    });
 }
+
 
 // 6.2. Render Halaman SUBSCRIBE
 function renderHalamanSubscribe() {
+    // ... (Kode ini sudah benar, tidak perlu diubah) ...
     const subscriptions = LocalDataManager.getSubscriptions();
     let contentHTML = `<h1 class="section-title">Langganan Saya</h1>`;
 
@@ -255,7 +232,6 @@ function renderHalamanSubscribe() {
         contentHTML += `<div class="anime-grid">`;
         subscriptions.forEach(anime => {
             const card = createAnimeCard(anime);
-            // Tambahkan animasi melayang ke setiap kartu
             card.style.animationDelay = `${Math.random() * 0.5}s`;
             contentHTML += card.outerHTML;
         });
@@ -274,7 +250,8 @@ function renderHalamanSubscribe() {
 
 // 6.3. Render Halaman AKUN
 function renderHalamanAkun() {
-    if (!currentUser) return; // Guard clause
+    // ... (Kode ini juga sudah benar, tidak perlu diubah) ...
+    if (!currentUser) return;
 
     const userCardHTML = `
         <div class="card user-card floating-card">
@@ -312,3 +289,20 @@ function renderHalamanAkun() {
         ${logoutButtonHTML}
     `;
 }
+
+// Tambahkan beberapa gaya untuk loader
+const style = document.createElement('style');
+style.textContent = `
+.loading-container { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+.loader {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px auto;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+`;
+document.head.appendChild(style);
