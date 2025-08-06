@@ -7,12 +7,12 @@ import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.
 
 // GANTI DENGAN KONFIGURASI FIREBASE ANDA SENDIRI
 const firebaseConfig = {
-    apiKey: "AIzaSyD8HjXwynugy5q-_KlqLajw27PDgUJ4QUk",
-    authDomain: "bubuwi-pro.firebaseapp.com",
-    projectId: "bubuwi-pro",
-    storageBucket: "bubuwi-pro.firebasestorage.app",
-    messagingSenderId: "741891119074",
-    appId: "1:741891119074:web:93cc65fb2cd94033aa4bbb"
+    apiKey: "ISI_DENGAN_API_KEY_ANDA",
+    authDomain: "ISI_DENGAN_AUTH_DOMAIN_ANDA",
+    projectId: "ISI_DENGAN_PROJECT_ID_ANDA",
+    storageBucket: "ISI_DENGAN_STORAGE_BUCKET_ANDA",
+    messagingSenderId: "ISI_DENGAN_MESSAGING_SENDER_ID_ANDA",
+    appId: "ISI_DENGAN_APP_ID_ANDA"
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -30,13 +30,13 @@ const bottomNavElement = document.querySelector('.bottom-nav');
 let currentUser = null; // Variabel untuk menyimpan data pengguna
 
 // ==========================================================
-// BAGIAN 3: MANAJEMEN DATA LOCALSTORAGE
+// BAGIAN 3: MANAJEMEN DATA LOCALSTORAGE (DENGAN PENAMBAHAN)
 // ==========================================================
 const LocalDataManager = {
     getSubscriptions: () => JSON.parse(localStorage.getItem('bubuwi_subscriptions')) || [],
     addSubscription: (anime) => {
         const subs = LocalDataManager.getSubscriptions();
-        if (!subs.some(s => s.title === anime.title)) {
+        if (!subs.some(s => s.link === anime.link)) {
             subs.push(anime);
             localStorage.setItem('bubuwi_subscriptions', JSON.stringify(subs));
             alert(`"${anime.title}" telah ditambahkan ke langganan!`);
@@ -44,10 +44,15 @@ const LocalDataManager = {
             alert(`"${anime.title}" sudah ada di daftar langganan.`);
         }
     },
+    // FUNGSI BARU untuk mengecek apakah sebuah anime sudah di-subscribe
+    isSubscribed: (animeLink) => {
+        const subs = LocalDataManager.getSubscriptions();
+        return subs.some(s => s.link === animeLink);
+    },
     getHistory: () => JSON.parse(localStorage.getItem('bubuwi_history')) || [],
     addHistory: (anime) => {
         let history = LocalDataManager.getHistory();
-        history = history.filter(h => h.title !== anime.title);
+        history = history.filter(h => h.link !== anime.link);
         history.unshift(anime);
         if (history.length > 20) history.pop();
         localStorage.setItem('bubuwi_history', JSON.stringify(history));
@@ -141,9 +146,10 @@ const router = async () => {
             await renderDetailPage(link, title, poster);
             break;
         case 'watch':
-            const watchLink = params.get('link');
-            const episodeTitle = params.get('title');
-            await renderWatchPage(watchLink, episodeTitle);
+            const episodeLink = params.get('episodeLink');
+            const seriesLink = params.get('seriesLink');
+            const seriesTitle = params.get('seriesTitle');
+            await renderWatchPage(episodeLink, seriesLink, seriesTitle);
             break;
         default:
             await renderHalamanUtama();
@@ -181,14 +187,14 @@ const renderNav = (page) => {
     `;
 };
 
-
 /**
  * Fungsi untuk membuat elemen <a> kartu episode.
+ * Perhatikan bagaimana kita menyertakan seriesLink dan seriesTitle untuk fitur Prev/Next nanti.
  */
-function createEpisodeCard(episode) {
+function createEpisodeCard(episode, seriesLink, seriesTitle) {
     const card = document.createElement('a');
     card.className = 'episode-card';
-    card.href = `#/watch?link=${encodeURIComponent(episode.link)}&title=${encodeURIComponent(episode.title)}`;
+    card.href = `#/watch?episodeLink=${encodeURIComponent(episode.link)}&seriesLink=${encodeURIComponent(seriesLink)}&seriesTitle=${encodeURIComponent(seriesTitle)}`;
     card.textContent = episode.title;
     return card;
 }
@@ -210,9 +216,9 @@ function createSearchResultCard(anime) {
 function createAnimeCard(anime) {
     const template = document.getElementById('anime-card-template');
     const card = template.content.cloneNode(true).firstElementChild;
-    card.href = `#/detail?link=${encodeURIComponent(anime.link)}&title=${encodeURIComponent(anime.title)}&poster=${encodeURIComponent(anime.poster)}`;
-    card.querySelector('.anime-poster').src = anime.poster || 'https://placehold.co/400x600/1e1e1e/white?text=No+Image';
-    card.querySelector('.anime-title').textContent = anime.title;
+    card.href = `#/detail?link=${encodeURIComponent(anime.link)}&title=${encodeURIComponent(anime.title || anime.seriesTitle)}&poster=${encodeURIComponent(anime.poster || anime.thumbnail)}`;
+    card.querySelector('.anime-poster').src = anime.poster || anime.thumbnail || 'https://placehold.co/400x600/1e1e1e/white?text=No+Image';
+    card.querySelector('.anime-title').textContent = anime.title || anime.seriesTitle;
     const episodeElement = card.querySelector('.anime-episode');
     if (anime.episode) {
         episodeElement.textContent = `Eps: ${anime.episode}`;
@@ -222,6 +228,7 @@ function createAnimeCard(anime) {
     return card;
 }
 
+
 // ==========================================================
 // BAGIAN 7: EVENT LISTENER KLIK UTAMA (EVENT DELEGATION)
 // ==========================================================
@@ -229,16 +236,16 @@ function createAnimeCard(anime) {
 // Satu event listener ini menangani semua klik pada kartu anime, episode, dll.
 appElement.addEventListener('click', (e) => {
     // Cari elemen <a> terdekat dari target yang diklik
-    const cardLink = e.target.closest('a.anime-card, a.search-result-card, a.episode-card');
+    const targetLink = e.target.closest('a');
 
-    // Jika yang diklik bukan salah satu dari kartu di atas, hentikan fungsi
-    if (!cardLink) return;
+    // Jika yang diklik atau induknya bukan tag <a>, abaikan
+    if (!targetLink || !targetLink.href.includes('#')) return;
     
     // Hentikan perilaku default link agar halaman tidak refresh
     e.preventDefault(); 
     
     // Ambil URL hash dari atribut href kartu yang diklik
-    const targetHash = cardLink.getAttribute('href');
+    const targetHash = new URL(targetLink.href).hash;
 
     // Jika hash-nya ada, ubah URL hash di browser.
     // Ini akan secara otomatis memicu 'hashchange' yang akan menjalankan router.
@@ -302,12 +309,7 @@ async function renderHalamanUtama() {
         let animeCardsHTML = '';
         if(newReleases.results && newReleases.results.length > 0){
              newReleases.results.forEach(anime => {
-                animeCardsHTML += createAnimeCard({
-                    poster: anime.thumbnail,
-                    title: anime.seriesTitle,
-                    link: anime.link,
-                    episode: anime.episode
-                }).outerHTML;
+                animeCardsHTML += createAnimeCard(anime).outerHTML;
             });
             newReleaseHTML += `<div class="anime-grid small-grid">${animeCardsHTML}</div>`;
         } else {
@@ -412,20 +414,19 @@ function renderHalamanAkun() {
  * Fungsi untuk merender halaman detail yang berisi daftar episode.
  */
 async function renderDetailPage(link, title, poster) {
-    // Tampilkan loader saat data episode diambil
     appElement.innerHTML = `<div class="loading-screen"><div class="loader"></div><p>Memuat Episode...</p></div>`;
     
     try {
-        // Panggil API scraping dengan parameter 'animePage'
         const response = await fetch(`/.netlify/functions/scrape?animePage=${encodeURIComponent(link)}`);
         if (!response.ok) throw new Error('Gagal memuat detail anime.');
         
         const data = await response.json();
 
-        // Gunakan poster dari parameter, atau dari hasil scrape jika ada, atau gambar placeholder
         const finalPoster = poster && poster !== 'undefined' ? poster : (data.thumbnail || 'https://placehold.co/400x600/1e1e1e/white?text=No+Image');
 
-        // Siapkan HTML untuk header halaman detail
+        // Cek apakah anime ini sudah di-subscribe
+        const isSubscribed = LocalDataManager.isSubscribed(link);
+
         let detailHTML = `
             <div class="detail-header">
                 <div class="img-frame">
@@ -434,17 +435,18 @@ async function renderDetailPage(link, title, poster) {
                 <div class="detail-info">
                     <h1 class="detail-title">${title}</h1>
                     <p class="episode-count">Total Episode: ${data.episodeCount || '?'}</p>
-                    <button id="subscribeBtn" class="subscribe-button">⭐ Subscribe</button>
+                    <button id="subscribeBtn" class="subscribe-button ${isSubscribed ? 'subscribed' : ''}">
+                        ${isSubscribed ? 'Tersubscribe' : '⭐ Subscribe'}
+                    </button>
                 </div>
             </div>
             <h2 class="section-title">Daftar Episode</h2>
             <div class="episode-list">
         `;
 
-        // Buat daftar episode jika ada
         if (data.episodes && data.episodes.length > 0) {
             data.episodes.forEach(ep => {
-                detailHTML += createEpisodeCard(ep).outerHTML;
+                detailHTML += createEpisodeCard(ep, link, title).outerHTML; // Kirim link seri dan judul seri
             });
         } else {
             detailHTML += `<p class="empty-state">Daftar episode tidak ditemukan.</p>`;
@@ -453,9 +455,11 @@ async function renderDetailPage(link, title, poster) {
         detailHTML += `</div>`;
         appElement.innerHTML = detailHTML;
 
-        // Tambahkan fungsi untuk tombol subscribe SETELAH tombolnya ada di DOM
-        document.getElementById('subscribeBtn').addEventListener('click', () => {
+        document.getElementById('subscribeBtn').addEventListener('click', (e) => {
             LocalDataManager.addSubscription({ title, poster: finalPoster, link });
+            // Ubah tampilan tombol setelah diklik
+            e.target.classList.add('subscribed');
+            e.target.textContent = '✓ Tersubscribe';
         });
 
     } catch (error) {
@@ -466,49 +470,81 @@ async function renderDetailPage(link, title, poster) {
 
 
 /**
- * Fungsi untuk merender halaman untuk menonton video.
+ * Fungsi untuk merender halaman untuk menonton video. (Sudah dirombak total)
  */
-async function renderWatchPage(watchLink, episodeTitle) {
-    // Tampilkan loader saat video diambil
-    appElement.innerHTML = `<div class="loading-screen"><div class="loader"></div><p>Memuat Video...</p></div>`;
+async function renderWatchPage(episodeLink, seriesLink, seriesTitle) {
+    appElement.innerHTML = `<div class="loading-screen"><div class="loader"></div><p>Memuat Video & Episode Lainnya...</p></div>`;
 
     try {
-        // Panggil API scraping dengan parameter 'url'
-        const response = await fetch(`/.netlify/functions/scrape?url=${encodeURIComponent(watchLink)}`);
-        if(!response.ok) throw new Error('Gagal mengambil data video.');
-        
-        const data = await response.json();
+        // Ambil data video dan data daftar episode secara bersamaan untuk efisiensi
+        const [videoResponse, seriesResponse] = await Promise.all([
+            fetch(`/.netlify/functions/scrape?url=${encodeURIComponent(episodeLink)}`),
+            fetch(`/.netlify/functions/scrape?animePage=${encodeURIComponent(seriesLink)}`)
+        ]);
+
+        if (!videoResponse.ok || !seriesResponse.ok) throw new Error('Gagal memuat data video atau daftar episode.');
+
+        const videoData = await videoResponse.json();
+        const seriesData = await seriesResponse.json();
+        const allEpisodes = seriesData.episodes || [];
+
+        // Cari tahu episode saat ini dan episode sebelum/sesudahnya
+        const currentIndex = allEpisodes.findIndex(ep => ep.link === episodeLink);
+        const prevEpisode = currentIndex > 0 ? allEpisodes[currentIndex - 1] : null;
+        const nextEpisode = currentIndex < allEpisodes.length - 1 ? allEpisodes[currentIndex + 1] : null;
 
         let watchHTML = `
             <div class="watch-page">
-                <h1 class="watch-title">${episodeTitle || data.title}</h1>
+                <div class="watch-header">
+                    <p class="watch-anime-title">${seriesTitle}</p>
+                    <h1 class="watch-episode-title">${videoData.title}</h1>
+                </div>
         `;
 
-        // Tampilkan pemutar video jika link video ditemukan
-        if (data.videoFrames && data.videoFrames.length > 0) {
-            watchHTML += `
-                <div class="video-container">
-                    <iframe src="${data.videoFrames[0]}" frameborder="0" allow="encrypted-media" allowfullscreen></iframe>
-                </div>
-            `;
+        if (videoData.videoFrames && videoData.videoFrames.length > 0) {
+            watchHTML += `<div class="video-container"><iframe src="${videoData.videoFrames[0]}" frameborder="0" allow="encrypted-media" allowfullscreen></iframe></div>`;
         } else {
-            watchHTML += `<p class="empty-state">Link video tidak ditemukan atau tidak dapat diputar.</p>`;
+            watchHTML += `<p class="empty-state">Link video tidak ditemukan.</p>`;
         }
-
-        // Tambahkan tombol kembali
-        watchHTML += `<button onclick="window.history.back()" class="back-button">Kembali ke Daftar Episode</button>`;
+        
+        // Buat tombol Navigasi Prev & Next
+        watchHTML += `<div class="watch-nav">`;
+        if (prevEpisode) {
+            watchHTML += `<a href="#/watch?episodeLink=${encodeURIComponent(prevEpisode.link)}&seriesLink=${encodeURIComponent(seriesLink)}&seriesTitle=${encodeURIComponent(seriesTitle)}" class="watch-nav-button">❮ Prev</a>`;
+        } else {
+            watchHTML += `<button class="watch-nav-button" disabled>❮ Prev</button>`;
+        }
+        if (nextEpisode) {
+            watchHTML += `<a href="#/watch?episodeLink=${encodeURIComponent(nextEpisode.link)}&seriesLink=${encodeURIComponent(seriesLink)}&seriesTitle=${encodeURIComponent(seriesTitle)}" class="watch-nav-button">Next ❯</a>`;
+        } else {
+            watchHTML += `<button class="watch-nav-button" disabled>Next ❯</button>`;
+        }
         watchHTML += `</div>`;
 
+        // Buat daftar semua episode
+        if (allEpisodes.length > 0) {
+            watchHTML += `<h3 class="section-title">Semua Episode</h3><div class="episode-grid-watch">`;
+            allEpisodes.forEach((ep, index) => {
+                const isActive = index === currentIndex ? 'active' : '';
+                watchHTML += `
+                    <a href="#/watch?episodeLink=${encodeURIComponent(ep.link)}&seriesLink=${encodeURIComponent(seriesLink)}&seriesTitle=${encodeURIComponent(seriesTitle)}" 
+                       class="episode-grid-button ${isActive}">
+                       ${ep.title.split(' ').pop()} 
+                    </a>`;
+            });
+            watchHTML += `</div>`;
+        }
+
+        watchHTML += `</div>`;
         appElement.innerHTML = watchHTML;
         
-        // Simpan ke riwayat setelah halaman nonton berhasil dimuat
-        const historyData = {
-            title: episodeTitle.split(' Episode')[0], // Ambil judul animenya saja
-            poster: '', // Kita tidak punya poster di sini, bisa dikosongkan
-            link: watchLink.substring(0, watchLink.lastIndexOf('/')), // Link ke halaman seri
-            episode: episodeTitle.split(' ').pop() // Ambil nomor episodenya saja
-        };
-        LocalDataManager.addHistory(historyData);
+        // Simpan ke riwayat
+        LocalDataManager.addHistory({
+            title: seriesTitle,
+            poster: seriesData.thumbnail, // Ambil poster dari data seri
+            link: seriesLink,
+            episode: videoData.title.split(' ').pop()
+        });
 
     } catch(error) {
         console.error("Error rendering watch page:", error);
