@@ -211,64 +211,50 @@ bottomNavElement.addEventListener('click', (e) => {
 // Dengarkan perubahan pada hash di URL
 window.addEventListener('hashchange', () => navigateTo(window.location.hash));
 // ==========================================================
-// BAGIAN 6: FUNGSI-FUNGSI PEMBANTU RENDER (CREATE ELEMENT)
+// ==========================================================
+// BAGIAN 6: FUNGSI-FUNGSI PEMBANTU RENDER (VERSI PERBAIKAN)
 // ==========================================================
 
-/**
- * FUNGSI BARU: Membuat satu kartu untuk daftar episode.
- * @param {object} episode - Objek yang berisi info episode { title, link }.
- * @returns {HTMLElement} - Elemen HTML <a> untuk satu episode.
- */
 function createEpisodeCard(episode) {
     const card = document.createElement('a');
-    card.href = `#/watch?link=${encodeURIComponent(episode.link)}&title=${encodeURIComponent(episode.title)}`;
     card.className = 'episode-card';
     card.textContent = episode.title;
+    // --- PERBAIKAN: Menyimpan data ke dataset ---
+    card.dataset.link = episode.link;
+    card.dataset.title = episode.title;
     return card;
 }
 
-/**
- * FUNGSI BARU: Membuat satu kartu untuk hasil pencarian (tanpa gambar).
- * @param {object} anime - Objek yang berisi info anime { title, link }.
- * @returns {HTMLElement} - Elemen HTML <a> untuk satu hasil pencarian.
- */
 function createSearchResultCard(anime) {
     const card = document.createElement('a');
-    // PERBAIKAN: Arahkan ke URL hash yang benar dengan parameter
-    card.href = `#/detail?link=${encodeURIComponent(anime.link)}&title=${encodeURIComponent(anime.title)}`;
-    card.className = 'search-result-card'; // Class CSS untuk hasil pencarian
+    card.className = 'search-result-card';
     card.textContent = anime.title;
+    // --- PERBAIKAN: Menyimpan data ke dataset ---
+    card.dataset.link = anime.link;
+    card.dataset.title = anime.title;
+    card.dataset.poster = anime.thumbnail; // Poster dari pencarian
     return card;
 }
 
-/**
- * FUNGSI LAMA (DIMODIFIKASI): Membuat kartu anime dengan poster (untuk Home, Riwayat, Subscribe).
- * @param {object} anime - Objek yang berisi info anime { title, poster, episode, link }.
- * @returns {HTMLElement} - Elemen HTML <div> untuk satu kartu anime.
- */
 function createAnimeCard(anime) {
     const template = document.getElementById('anime-card-template');
     const card = template.content.cloneNode(true).firstElementChild;
-
-    // Tambahkan link ke hash detail dengan parameter yang di-encode
-    card.href = `#/detail?link=${encodeURIComponent(anime.link)}&title=${encodeURIComponent(anime.title)}&poster=${encodeURIComponent(anime.poster)}`;
-    
-    // Mengisi data ke dalam elemen kartu
     card.querySelector('.anime-poster').src = anime.poster || 'https://placehold.co/400x600/1e1e1e/white?text=No+Image';
-    card.querySelector('.anime-poster').alt = anime.title;
     card.querySelector('.anime-title').textContent = anime.title;
-    
     const episodeElement = card.querySelector('.anime-episode');
     if (anime.episode) {
         episodeElement.textContent = `Eps: ${anime.episode}`;
     } else {
-        // Jika tidak ada info episode, hapus elemennya
         episodeElement.remove();
     }
-    
-    // Tidak perlu event listener di sini karena sudah ditangani oleh router
+    // --- PERBAIKAN UTAMA: Menyimpan semua data ke dataset ---
+    card.dataset.link = anime.link;
+    card.dataset.title = anime.title;
+    card.dataset.poster = anime.poster;
+
     return card;
 }
+
 // ==========================================================
 // BAGIAN 7: FUNGSI-FUNGSI RENDER HALAMAN UTAMA
 // ==========================================================
@@ -433,49 +419,37 @@ function renderHalamanAkun() {
     `;
 }
 // ==========================================================
-// BAGIAN 9: EVENT LISTENER UTAMA (EVENT DELEGATION)
+// BAGIAN 9: EVENT LISTENER UTAMA (VERSI PERBAIKAN)
 // ==========================================================
-
-// Kita pasang satu event listener di elemen utama 'app'.
-// Ini lebih efisien daripada memasang listener di setiap kartu.
 appElement.addEventListener('click', (e) => {
+    // Cari elemen terdekat dari yang diklik yang merupakan sebuah kartu
+    const cardElement = e.target.closest('.anime-card, .search-result-card, .episode-card');
+
+    // Jika yang diklik bukan salah satu dari kartu di atas, hentikan fungsi
+    if (!cardElement) return;
     
-    // Cek apakah yang diklik (atau elemen induknya) adalah sebuah kartu anime
-    const animeCard = e.target.closest('.anime-card, .search-result-card');
-    if (animeCard) {
-        e.preventDefault(); // Mencegah perilaku default dari tag <a>
+    e.preventDefault(); // Mencegah aksi default tag <a>
 
-        // Ambil data yang sudah kita simpan di elemen kartu
-        const { link, title, poster } = animeCard.dataset;
-        
-        if (link) {
-            // Buat URL hash baru untuk halaman detail
-            const detailUrl = `#/detail?link=${encodeURIComponent(link)}&title=${encodeURIComponent(title)}&poster=${encodeURIComponent(poster)}`;
-            // Ubah hash di URL, ini akan memicu fungsi navigateTo() untuk pindah halaman
-            window.location.hash = detailUrl;
-        } else {
-            alert('Tidak dapat membuka detail, link tidak ditemukan.');
-        }
-        return; // Hentikan eksekusi agar tidak lanjut ke pengecekan di bawah
-    }
+    // Ambil data yang sudah kita simpan di dataset
+    const { link, title, poster } = cardElement.dataset;
 
-    // Cek apakah yang diklik (atau elemen induknya) adalah sebuah kartu episode
-    const episodeCard = e.target.closest('.episode-card');
-    if(episodeCard){
-        e.preventDefault(); // Mencegah perilaku default dari tag <a>
-
-        // Ambil data dari elemen episode
-        const { link, title } = episodeCard.dataset;
-        const episodeTitle = episodeCard.textContent;
-
-        if (link) {
-            // Buat URL hash baru untuk halaman nonton
-            const watchUrl = `#/watch?link=${encodeURIComponent(link)}&title=${encodeURIComponent(episodeTitle)}`;
-            // Ubah hash di URL untuk memicu fungsi navigateTo()
-            window.location.hash = watchUrl;
-        } else {
-             alert('Tidak dapat membuka video, link tidak ditemukan.');
-        }
+    // Pastikan link-nya ada dan valid sebelum melanjutkan
+    if (!link || link === 'undefined' || link === 'null') {
+        alert('Tidak dapat membuka detail, link tidak ditemukan.');
         return;
     }
+
+    let targetHash = '';
+
+    // Tentukan mau ke halaman mana berdasarkan class kartu yang diklik
+    if (cardElement.classList.contains('episode-card')) {
+        // Jika kartu episode, arahkan ke halaman nonton
+        targetHash = `#/watch?link=${encodeURIComponent(link)}&title=${encodeURIComponent(title)}`;
+    } else {
+        // Jika kartu anime atau hasil pencarian, arahkan ke halaman detail
+        targetHash = `#/detail?link=${encodeURIComponent(link)}&title=${encodeURIComponent(title)}&poster=${encodeURIComponent(poster)}`;
+    }
+
+    // Ubah URL hash, ini akan otomatis memicu router 'navigateTo()' untuk pindah halaman
+    window.location.hash = targetHash;
 });
