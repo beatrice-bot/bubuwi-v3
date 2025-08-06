@@ -33,7 +33,6 @@ const bottomNavElement = document.querySelector('.bottom-nav');
 // ==========================================================
 // BAGIAN 3: MANAJEMEN DATA LOCALSTORAGE
 // ==========================================================
-// Objek ini akan mengelola semua data yang disimpan di perangkat pengguna
 const LocalDataManager = {
     // Mengambil daftar langganan dari localStorage
     getSubscriptions: () => {
@@ -46,9 +45,9 @@ const LocalDataManager = {
         if (!subs.some(s => s.title === anime.title)) {
             subs.push(anime);
             localStorage.setItem('bubuwi_subscriptions', JSON.stringify(subs));
-            alert(`${anime.title} telah ditambahkan ke langganan!`);
+            alert(`"${anime.title}" telah ditambahkan ke langganan!`);
         } else {
-            alert(`${anime.title} sudah ada di daftar langganan.`);
+            alert(`"${anime.title}" sudah ada di daftar langganan.`);
         }
     },
     // Mengambil riwayat tontonan
@@ -72,7 +71,6 @@ const LocalDataManager = {
 // ==========================================================
 // BAGIAN 4: AUTENTIKASI FIREBASE
 // ==========================================================
-// Variabel untuk menyimpan data pengguna yang sedang login
 let currentUser = null;
 
 // Fungsi ini adalah pusat kendali aplikasi.
@@ -82,7 +80,7 @@ onAuthStateChanged(auth, (user) => {
         // --- KONDISI SAAT PENGGUNA BERHASIL LOGIN ---
         currentUser = user;
 
-        // Simpan atau perbarui info pengguna di Firebase Database (opsional tapi bagus)
+        // Simpan atau perbarui info pengguna di Firebase Database
         const userRef = ref(db, 'users/' + user.uid);
         set(userRef, {
             displayName: user.displayName,
@@ -125,38 +123,47 @@ window.handleLogout = handleLogout;
 
 
 // ==========================================================
-// BAGIAN 5: ROUTER & NAVIGASI
+// BAGIAN 5: ROUTER & NAVIGASI (VERSI BARU YANG LEBIH BAIK)
 // ==========================================================
 
 // Fungsi untuk menggambar ulang navigasi bawah dan menandai halaman aktif
 const renderNav = (activePage) => {
+    const mainPages = ['utama', 'subscribe', 'akun'];
+    let activeNav = '';
+    if (mainPages.includes(activePage)) {
+        activeNav = activePage;
+    }
+    // Jika kita di halaman 'detail' atau 'watch', kita anggap nav 'utama' yang aktif
+    else {
+        activeNav = 'utama';
+    }
+
     bottomNavElement.innerHTML = `
-        <a href="#/" data-page="utama" class="nav-link ${activePage === 'utama' ? 'active' : ''}">
+        <a href="#/" data-page="utama" class="nav-link ${activeNav === 'utama' ? 'active' : ''}">
             <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
             <span>Utama</span>
         </a>
-        <a href="#/subscribe" data-page="subscribe" class="nav-link ${activePage === 'subscribe' ? 'active' : ''}">
+        <a href="#/subscribe" data-page="subscribe" class="nav-link ${activeNav === 'subscribe' ? 'active' : ''}">
             <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
             <span>Subscribe</span>
         </a>
-        <a href="#/akun" data-page="akun" class="nav-link ${activePage === 'akun' ? 'active' : ''}">
+        <a href="#/akun" data-page="akun" class="nav-link ${activeNav === 'akun' ? 'active' : ''}">
             <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
             <span>Akun</span>
         </a>
     `;
 };
 
-// Fungsi utama untuk navigasi halaman
+// Fungsi utama untuk navigasi halaman (sudah diperbaiki)
 function navigateTo(hash) {
-    const page = hash.substring(2) || 'utama';
-    
-    // Gambar ulang navigasi dan tandai yang aktif
-    renderNav(page);
+    const [path, queryString] = hash.split('?');
+    const page = path.substring(2) || 'utama';
 
-    // Scroll ke atas setiap pindah halaman
+    renderNav(page);
     window.scrollTo(0, 0);
 
-    // Render halaman yang sesuai berdasarkan 'page'
+    const params = new URLSearchParams(queryString);
+
     switch(page) {
         case 'utama':
             renderHalamanUtama();
@@ -167,8 +174,27 @@ function navigateTo(hash) {
         case 'akun':
             renderHalamanAkun();
             break;
+        case 'detail':
+            const link = params.get('link');
+            const title = params.get('title');
+            const poster = params.get('poster');
+            if (link) {
+                renderDetailPage(link, title, poster);
+            } else {
+                navigateTo('#/'); // Kembali ke home jika parameter tidak ada
+            }
+            break;
+        case 'watch':
+            const watchLink = params.get('link');
+            const episodeTitle = params.get('title');
+             if (watchLink) {
+                renderWatchPage(watchLink, episodeTitle);
+            } else {
+                navigateTo('#/'); // Kembali ke home jika parameter tidak ada
+            }
+            break;
         default:
-            renderHalamanUtama(); // Halaman default jika hash tidak dikenali
+            renderHalamanUtama();
             break;
     }
 }
@@ -178,26 +204,55 @@ bottomNavElement.addEventListener('click', (e) => {
     const navLink = e.target.closest('.nav-link');
     if (navLink) {
         e.preventDefault();
-        // Ubah hash di URL untuk memicu 'hashchange'
         window.location.hash = navLink.getAttribute('href');
     }
 });
 
-// Dengarkan perubahan pada hash di URL (misal: saat menekan tombol back/forward browser)
+// Dengarkan perubahan pada hash di URL
 window.addEventListener('hashchange', () => navigateTo(window.location.hash));
 // ==========================================================
-// BAGIAN 6: FUNGSI RENDER (Menggambar setiap Halaman)
+// BAGIAN 6: FUNGSI-FUNGSI PEMBANTU RENDER (CREATE ELEMENT)
 // ==========================================================
 
 /**
- * Fungsi untuk membuat satu kartu anime dari template HTML.
- * @param {object} anime - Objek yang berisi info anime (title, poster, episode, link).
- * @returns {HTMLElement} - Elemen HTML kartu anime yang siap ditampilkan.
+ * FUNGSI BARU: Membuat satu kartu untuk daftar episode.
+ * @param {object} episode - Objek yang berisi info episode { title, link }.
+ * @returns {HTMLElement} - Elemen HTML <a> untuk satu episode.
+ */
+function createEpisodeCard(episode) {
+    const card = document.createElement('a');
+    card.href = `#/watch?link=${encodeURIComponent(episode.link)}&title=${encodeURIComponent(episode.title)}`;
+    card.className = 'episode-card';
+    card.textContent = episode.title;
+    return card;
+}
+
+/**
+ * FUNGSI BARU: Membuat satu kartu untuk hasil pencarian (tanpa gambar).
+ * @param {object} anime - Objek yang berisi info anime { title, link }.
+ * @returns {HTMLElement} - Elemen HTML <a> untuk satu hasil pencarian.
+ */
+function createSearchResultCard(anime) {
+    const card = document.createElement('a');
+    // PERBAIKAN: Arahkan ke URL hash yang benar dengan parameter
+    card.href = `#/detail?link=${encodeURIComponent(anime.link)}&title=${encodeURIComponent(anime.title)}`;
+    card.className = 'search-result-card'; // Class CSS untuk hasil pencarian
+    card.textContent = anime.title;
+    return card;
+}
+
+/**
+ * FUNGSI LAMA (DIMODIFIKASI): Membuat kartu anime dengan poster (untuk Home, Riwayat, Subscribe).
+ * @param {object} anime - Objek yang berisi info anime { title, poster, episode, link }.
+ * @returns {HTMLElement} - Elemen HTML <div> untuk satu kartu anime.
  */
 function createAnimeCard(anime) {
     const template = document.getElementById('anime-card-template');
     const card = template.content.cloneNode(true).firstElementChild;
 
+    // Tambahkan link ke hash detail dengan parameter yang di-encode
+    card.href = `#/detail?link=${encodeURIComponent(anime.link)}&title=${encodeURIComponent(anime.title)}&poster=${encodeURIComponent(anime.poster)}`;
+    
     // Mengisi data ke dalam elemen kartu
     card.querySelector('.anime-poster').src = anime.poster || 'https://placehold.co/400x600/1e1e1e/white?text=No+Image';
     card.querySelector('.anime-poster').alt = anime.title;
@@ -205,32 +260,18 @@ function createAnimeCard(anime) {
     
     const episodeElement = card.querySelector('.anime-episode');
     if (anime.episode) {
-        episodeElement.textContent = `Terakhir ditonton: ${anime.episode}`;
+        episodeElement.textContent = `Eps: ${anime.episode}`;
     } else {
-        // Jika tidak ada info episode, hapus elemennya agar tidak memakan ruang
+        // Jika tidak ada info episode, hapus elemennya
         episodeElement.remove();
     }
-
-    // Menambahkan event listener agar kartu bisa diklik
-    card.addEventListener('click', () => {
-        // Untuk sekarang, kita hanya tampilkan alert.
-        // Nanti di sini akan ada logika untuk pindah ke halaman detail anime.
-        alert(`Anda mengklik: ${anime.title}\nLink dari API: ${anime.link || 'Tidak ada'}`);
-        
-        // Contoh menambahkan anime ke riwayat saat diklik
-        if (anime.link) { // Pastikan ada data anime lengkap sebelum disimpan
-            LocalDataManager.addHistory({
-                title: anime.title,
-                poster: anime.poster,
-                link: anime.link,
-                episode: anime.episode || 'Episode terakhir' // Contoh
-            });
-        }
-    });
-
+    
+    // Tidak perlu event listener di sini karena sudah ditangani oleh router
     return card;
 }
-
+// ==========================================================
+// BAGIAN 7: FUNGSI-FUNGSI RENDER HALAMAN UTAMA
+// ==========================================================
 
 /**
  * Fungsi untuk merender seluruh konten Halaman Utama.
@@ -267,7 +308,6 @@ async function renderHalamanUtama() {
     if (history.length > 0) {
         historyHTML += `<div class="anime-grid small-grid">`;
         history.forEach(anime => {
-            // Kita panggil createAnimeCard untuk setiap item riwayat
             historyHTML += createAnimeCard(anime).outerHTML;
         });
         historyHTML += `</div>`;
@@ -328,15 +368,10 @@ async function renderHalamanUtama() {
             
             let searchResultHTML = `<h3 class="section-title">Hasil Pencarian</h3>`;
             if (searchResults.results && searchResults.results.length > 0) {
-                 searchResultHTML += `<div class="anime-grid">`;
+                 // Gunakan fungsi baru untuk hasil pencarian (tanpa gambar)
                  searchResults.results.forEach(anime => {
-                     searchResultHTML += createAnimeCard({
-                         poster: anime.thumbnail, // Thumbnail dari pencarian mungkin null
-                         title: anime.title,
-                         link: anime.link
-                     }).outerHTML;
+                     searchResultHTML += createSearchResultCard(anime).outerHTML;
                  });
-                 searchResultHTML += `</div>`;
             } else {
                  searchResultHTML += `<p class="empty-state">Tidak ada hasil ditemukan untuk "${query}".</p>`;
             }
@@ -347,9 +382,9 @@ async function renderHalamanUtama() {
         }
     });
 }
+
 /**
  * Fungsi untuk merender halaman Subscribe.
- * Mengambil data dari localStorage dan menampilkannya.
  */
 function renderHalamanSubscribe() {
     const subscriptions = LocalDataManager.getSubscriptions();
@@ -359,13 +394,11 @@ function renderHalamanSubscribe() {
         contentHTML += `<div class="anime-grid">`;
         subscriptions.forEach(anime => {
             const card = createAnimeCard(anime);
-            // Tambahkan animasi melayang dengan delay acak agar terlihat lebih hidup
             card.style.animationDelay = `${Math.random() * 0.5}s`;
             contentHTML += card.outerHTML;
         });
         contentHTML += `</div>`;
     } else {
-        // Tampilkan pesan jika tidak ada langganan
         contentHTML += `
             <div class="empty-state">
                 <div class="empty-state-icon">⭐</div>
@@ -379,47 +412,70 @@ function renderHalamanSubscribe() {
 
 /**
  * Fungsi untuk merender halaman Akun.
- * Mengambil data dari currentUser (Firebase) dan menampilkannya.
  */
 function renderHalamanAkun() {
-    // Pastikan pengguna sudah login sebelum merender halaman ini
-    if (!currentUser) return;
-
-    // Siapkan HTML untuk setiap kartu di halaman Akun
-    const userCardHTML = `
+    if (!currentUser) return; // Pastikan pengguna sudah login
+    appElement.innerHTML = `
         <div class="card user-card floating-card">
-            <div class="profile-pic img-frame">
-                <img src="${currentUser.photoURL}" alt="Foto Profil">
-            </div>
-            <div class="user-info">
-                <div class="username">${currentUser.displayName}</div>
-                <div class="email">${currentUser.email}</div>
-            </div>
+            <div class="profile-pic img-frame"><img src="${currentUser.photoURL}" alt="Profil"></div>
+            <div class="user-info"><div class="username">${currentUser.displayName}</div><div class="email">${currentUser.email}</div></div>
         </div>
-    `;
-
-    const devContactHTML = `
         <h3 class="section-title">Kontak Developer</h3>
         <a href="https://instagram.com/adnanmwa" target="_blank" class="card contact-card floating-card" style="animation-delay: 0.1s;">
-            <div class="contact-logo-wrapper img-frame">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/500px-Instagram_icon.png" alt="Instagram">
-            </div>
+            <div class="contact-logo-wrapper img-frame"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/500px-Instagram_icon.png" alt="IG"></div>
             <span class="contact-username">@adnanmwa</span>
         </a>
         <a href="https://tiktok.com/@adnansagiri" target="_blank" class="card contact-card floating-card" style="animation-delay: 0.2s;">
-            <div class="contact-logo-wrapper img-frame">
-                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNxuydAoOVzXmO6EXy6vZhaJ17jCGvYKITEzu7BNMYkEaux6HqKvnQax0Q&s=10" alt="TikTok">
-            </div>
+            <div class="contact-logo-wrapper img-frame"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNxuydAoOVzXmO6EXy6vZhaJ17jCGvYKITEzu7BNMYkEaux6HqKvnQax0Q&s=10" alt="TikTok"></div>
             <span class="contact-username">@adnansagiri</span>
         </a>
-    `;
-
-    const logoutButtonHTML = `<button id="logoutBtn-main" onclick="window.handleLogout()">Logout</button>`;
-    
-    // Gabungkan semua HTML dan render ke DOM
-    appElement.innerHTML = `
-        ${userCardHTML}
-        ${devContactHTML}
-        ${logoutButtonHTML}
+        <button id="logoutBtn-main" onclick="window.handleLogout()">Logout</button>
     `;
 }
+// ==========================================================
+// BAGIAN 9: EVENT LISTENER UTAMA (EVENT DELEGATION)
+// ==========================================================
+
+// Kita pasang satu event listener di elemen utama 'app'.
+// Ini lebih efisien daripada memasang listener di setiap kartu.
+appElement.addEventListener('click', (e) => {
+    
+    // Cek apakah yang diklik (atau elemen induknya) adalah sebuah kartu anime
+    const animeCard = e.target.closest('.anime-card, .search-result-card');
+    if (animeCard) {
+        e.preventDefault(); // Mencegah perilaku default dari tag <a>
+
+        // Ambil data yang sudah kita simpan di elemen kartu
+        const { link, title, poster } = animeCard.dataset;
+        
+        if (link) {
+            // Buat URL hash baru untuk halaman detail
+            const detailUrl = `#/detail?link=${encodeURIComponent(link)}&title=${encodeURIComponent(title)}&poster=${encodeURIComponent(poster)}`;
+            // Ubah hash di URL, ini akan memicu fungsi navigateTo() untuk pindah halaman
+            window.location.hash = detailUrl;
+        } else {
+            alert('Tidak dapat membuka detail, link tidak ditemukan.');
+        }
+        return; // Hentikan eksekusi agar tidak lanjut ke pengecekan di bawah
+    }
+
+    // Cek apakah yang diklik (atau elemen induknya) adalah sebuah kartu episode
+    const episodeCard = e.target.closest('.episode-card');
+    if(episodeCard){
+        e.preventDefault(); // Mencegah perilaku default dari tag <a>
+
+        // Ambil data dari elemen episode
+        const { link, title } = episodeCard.dataset;
+        const episodeTitle = episodeCard.textContent;
+
+        if (link) {
+            // Buat URL hash baru untuk halaman nonton
+            const watchUrl = `#/watch?link=${encodeURIComponent(link)}&title=${encodeURIComponent(episodeTitle)}`;
+            // Ubah hash di URL untuk memicu fungsi navigateTo()
+            window.location.hash = watchUrl;
+        } else {
+             alert('Tidak dapat membuka video, link tidak ditemukan.');
+        }
+        return;
+    }
+});
