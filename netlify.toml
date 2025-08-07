@@ -1,0 +1,15 @@
+# Konfigurasi dasar untuk build di Netlify
+[build]
+  # Menunjukkan di mana fungsi serverless kita berada
+  functions = "netlify/functions"
+  # Menunjukkan folder mana yang berisi file publik (CSS, JS, gambar)
+  publish = "public"
+
+# Aturan "Redirect" utama
+[[redirects]]
+  # Untuk semua permintaan (request) URL yang masuk...
+  from = "/*"
+  # ...arahkan ke fungsi server.js untuk diproses
+  to = "/.netlify/functions/server"
+  # Status 200 berarti "OK" dan prosesnya terjadi di belakang layar
+  status = 200
