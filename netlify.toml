@@ -1,15 +1,24 @@
-# Konfigurasi dasar untuk build di Netlify
+# Konfigurasi Build Utama
 [build]
-  # Menunjukkan di mana fungsi serverless kita berada
-  functions = "netlify/functions"
-  # Menunjukkan folder mana yang berisi file publik (CSS, JS, gambar)
+  # Folder yang akan di-deploy ke publik
   publish = "public"
+  # Folder tempat functions berada
+  functions = "netlify/functions"
 
-# Aturan "Redirect" utama
+# Konfigurasi spesifik untuk Functions (INI KUNCINYA)
+[functions]
+  # Memberitahu Netlify untuk meng-bundle (menggabungkan) setiap fungsi
+  # beserta dependensinya secara terpisah menggunakan esbuild.
+  # Ini adalah cara paling modern dan anti-gagal.
+  node_bundler = "esbuild"
+  
+  # Menentukan versi Node.js yang akan digunakan
+  # Kita gunakan versi 20, yang modern dan stabil
+  [functions.node_compat]
+    runtime = "nodejs20.x"
+
+# Aturan Redirect (tetap sama)
 [[redirects]]
-  # Untuk semua permintaan (request) URL yang masuk...
   from = "/*"
-  # ...arahkan ke fungsi server.js untuk diproses
   to = "/.netlify/functions/server"
-  # Status 200 berarti "OK" dan prosesnya terjadi di belakang layar
   status = 200
