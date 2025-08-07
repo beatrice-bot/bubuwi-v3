@@ -444,5 +444,5 @@ const PORT = process.env.PORT || 3000;
 
 // Mulai server untuk mendengarkan permintaan masuk
 server.listen(PORT, () => {
-    console.log(\`Server Bubuwi-V3 berjalan di port \${PORT}\`);
+    console.log(`Server Bubuwi-V3 berjalan di port ${PORT}`);
 });
