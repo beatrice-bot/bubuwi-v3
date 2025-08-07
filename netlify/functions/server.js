@@ -1,92 +1,66 @@
+// Mengimpor library yang dibutuhkan
+const http = require('http');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const url = require('url');
 
 // Domain website target yang akan kita scrape
 const BASE_URL = 'https://samehadaku.li';
 
 /**
- * Ini adalah fungsi utama (Handler) yang akan dijalankan oleh Netlify
- * setiap kali ada pengunjung yang membuka website Anda.
+ * Ini adalah fungsi utama (Handler) yang akan dijalankan setiap kali ada request masuk.
  */
-exports.handler = async function (event, context) {
-    // event.path berisi URL yang diminta pengguna, contoh: "/", "/anime/dandadan/", dll.
-    const path = event.path;
+const handler = async (req, res) => {
+    // Membaca path dan parameter dari URL yang diminta pengguna
+    const parsedUrl = url.parse(req.url, true);
+    const path = parsedUrl.pathname;
+    const queryParams = parsedUrl.query;
     
     // Variabel untuk menyimpan HTML final yang akan dikirim ke browser
     let responseHTML = '';
 
     try {
         // --- Router Sederhana Berbasis Path URL ---
-        // Router ini akan memeriksa URL dan memanggil fungsi yang sesuai.
-
         if (path === '/' || path === '/index.html') {
-            // Jika pengguna mengakses halaman utama
             responseHTML = await renderHomePage();
 
         } else if (path.startsWith('/anime/')) {
-            // Jika pengguna mengakses halaman detail anime (daftar episode)
-            // Kita buat URL lengkapnya untuk di-scrape
             const animeLink = `${BASE_URL}${path}`;
             responseHTML = await renderDetailPage(animeLink);
 
-        } else if (path.startsWith('/search')) {
-            // Jika pengguna melakukan pencarian
-            // Query pencarian diambil dari parameter URL, contoh: /search?q=dandadan
-            const query = event.queryStringParameters.q || '';
-            responseHTML = await renderSearchPage(query);
-            
         } else if (path.startsWith('/nonton/')) {
-            // Jika pengguna mengakses halaman nonton
             // Kita ubah path-nya kembali menjadi URL samehadaku yang valid
             const episodeLink = `${BASE_URL}/${path.substring('/nonton/'.length)}`;
             responseHTML = await renderWatchPage(episodeLink);
             
+        } else if (path.startsWith('/search')) {
+            const query = queryParams.q || '';
+            responseHTML = await renderSearchPage(query);
+
+        } else if (path === '/subscribe') {
+            responseHTML = await renderSubscribePage();
+            
+        } else if (path === '/akun') {
+            responseHTML = await renderAccountPage();
+            
         } else {
             // Jika path tidak cocok dengan rute di atas, tampilkan halaman 404
-            responseHTML = `<h1>404: Halaman Tidak Ditemukan</h1>`;
+            res.writeHead(404, { 'Content-Type': 'text/html' });
+            res.end(buildHTMLShell('404 Not Found', `<h1>404: Halaman Tidak Ditemukan</h1>`));
+            return;
         }
         
         // Kirimkan HTML yang sudah jadi ke browser pengguna
-        return {
-            statusCode: 200,
-            headers: { 'Content-Type': 'text/html' },
-            body: responseHTML,
-        };
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(responseHTML);
 
     } catch (error) {
         // Jika terjadi error saat scraping atau proses lainnya
-        console.error('Server Function Error:', error);
-        return {
-            statusCode: 500,
-            headers: { 'Content-Type': 'text/html' },
-            body: `<h1>Error 500</h1><p>Maaf, terjadi kesalahan internal pada server. Coba lagi nanti.</p>`,
-        };
+        console.error('Server Error:', error);
+        res.writeHead(500, { 'Content-Type': 'text/html' });
+        res.end(buildHTMLShell('Error 500', `<h1>500: Server Error</h1><p>Terjadi kesalahan internal.</p>`));
     }
 };
-
-
-// --- Placeholder untuk fungsi-fungsi yang akan kita buat di bagian selanjutnya ---
-// --- Untuk saat ini, mereka hanya mengembalikan teks sederhana ---
-
-async function renderHomePage() {
-    return `<h1>Halaman Utama (Akan dibuat di Bagian 2)</h1>`;
-}
-
-async function renderDetailPage(link) {
-    return `<h1>Halaman Detail untuk ${link} (Akan dibuat di Bagian 3)</h1>`;
-}
-
-async function renderWatchPage(link) {
-    return `<h1>Halaman Nonton untuk ${link} (Akan dibuat di Bagian 3)</h1>`;
-}
-
-async function renderSearchPage(query) {
-    return `<h1>Halaman Pencarian untuk "${query}" (Akan dibuat di Bagian 4)</h1>`;
-}
-// ==========================================================
-// BAGIAN 2: PEMBANGUN HTML & LOGIKA HALAMAN UTAMA
-// ==========================================================
-
 /**
  * Fungsi "cetakan" untuk membuat kerangka dasar setiap halaman HTML.
  * @param {string} pageTitle - Judul halaman yang akan muncul di tab browser.
@@ -94,6 +68,24 @@ async function renderSearchPage(query) {
  * @returns {string} - String HTML lengkap dari atas sampai bawah.
  */
 const buildHTMLShell = (pageTitle, contentHTML) => {
+    // Navigasi bawah dibuat di sini agar bisa disertakan di setiap halaman
+    const navHTML = `
+        <nav class="bottom-nav">
+            <a href="/" class="nav-link">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                <span>Utama</span>
+            </a>
+            <a href="/subscribe" class="nav-link">
+                <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <span>Subscribe</span>
+            </a>
+            <a href="/akun" class="nav-link">
+                <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                <span>Akun</span>
+            </a>
+        </nav>
+    `;
+
     return `
         <!DOCTYPE html>
         <html lang="id">
@@ -111,8 +103,7 @@ const buildHTMLShell = (pageTitle, contentHTML) => {
                 <main id="app">
                     ${contentHTML}
                 </main>
-                <nav class="bottom-nav">
-                    </nav>
+                ${navHTML}
             </div>
             <script type="module" src="/app.js"></script>
         </body>
@@ -123,7 +114,6 @@ const buildHTMLShell = (pageTitle, contentHTML) => {
 
 /**
  * Fungsi untuk melakukan scrape dan membangun konten Halaman Utama.
- * Menggantikan placeholder dari Bagian 1.
  */
 async function renderHomePage() {
     // 1. Ambil data HTML dari website target
@@ -143,7 +133,7 @@ async function renderHomePage() {
     const searchHTML = `
         <div class="card search-card">
             <form action="/search" method="GET">
-                <input type="search" name="q" placeholder="Cari judul anime...">
+                <input type="search" name="q" placeholder="Cari judul anime..." required>
                 <button type="submit">
                     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                 </button>
@@ -197,15 +187,6 @@ async function renderHomePage() {
     // 5. Masukkan konten ke dalam "cetakan" HTML dan kembalikan hasilnya
     return buildHTMLShell('Bubuwi-V3 | Home', mainContent);
 }
-
-// --- Placeholder untuk fungsi-fungsi yang akan kita buat di bagian selanjutnya ---
-async function renderDetailPage(link) { return `<h1>Halaman Detail untuk ${link} (Akan dibuat di Bagian 3)</h1>`; }
-async function renderWatchPage(link) { return `<h1>Halaman Nonton untuk ${link} (Akan dibuat di Bagian 3)</h1>`; }
-async function renderSearchPage(query) { return `<h1>Halaman Pencarian untuk "${query}" (Akan dibuat di Bagian 4)</h1>`; }
-// ==========================================================
-// BAGIAN 3: LOGIKA HALAMAN DETAIL & NONTON
-// ==========================================================
-
 /**
  * Fungsi untuk melakukan scrape dan membangun halaman Detail Anime (Daftar Episode).
  * @param {string} animeUrl - URL lengkap halaman seri anime di Samehadaku.
@@ -219,7 +200,7 @@ async function renderDetailPage(animeUrl) {
     // 2. Scrape informasi dasar dari halaman
     const title = $('.infox h1.entry-title').text().trim();
     const poster = $('.thumbook .thumb img').attr('src');
-    const synopsis = $('.entry-content p').text().trim();
+    const synopsis = $('.entry-content p').first().text().trim();
     
     const episodes = [];
     $('.eplister ul li').each((i, el) => {
@@ -333,7 +314,8 @@ async function renderWatchPage(episodeUrl) {
             const localEpLink = `/nonton${new URL(ep.link).pathname}`;
             // Tandai episode yang sedang aktif
             const isActive = ep.link === episodeUrl ? 'active' : '';
-            contentHTML += `<a href="${localEpLink}" class="episode-grid-button ${isActive}">${ep.title.split(' ').pop()}</a>`;
+            const epNumber = ep.title.match(/\d+/g) ? ep.title.match(/\d+/g).join('') : '#';
+            contentHTML += `<a href="${localEpLink}" class="episode-grid-button ${isActive}">Eps ${epNumber}</a>`;
         });
         contentHTML += `</div></div>`;
     }
@@ -343,33 +325,28 @@ async function renderWatchPage(episodeUrl) {
     // 4. Masukkan konten ke dalam "cetakan" HTML dan kembalikan
     return buildHTMLShell(episodeTitle, contentHTML);
 }
-
-// --- Placeholder untuk fungsi yang akan kita buat di bagian selanjutnya ---
-async function renderSearchPage(query) { return `<h1>Halaman Pencarian untuk "${query}" (Akan dibuat di Bagian 4)</h1>`; }
-// ==========================================================
-// BAGIAN 4: LOGIKA HALAMAN PENCARIAN DAN LAINNYA
-// ==========================================================
-
 /**
  * Fungsi untuk melakukan scrape dan membangun halaman Hasil Pencarian.
  * @param {string} query - Kata kunci pencarian.
  * @returns {string} - String HTML lengkap untuk halaman hasil pencarian.
  */
 async function renderSearchPage(query) {
-    // Jika tidak ada query, tampilkan halaman pencarian kosong
+    // String HTML dasar untuk halaman pencarian
+    let contentHTML = `
+        <h1 class="section-title">Pencarian</h1>
+        <div class="card search-card">
+            <form action="/search" method="GET">
+                <input type="search" name="q" placeholder="Ketik judul anime..." value="${query || ''}" required>
+                <button type="submit">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                </button>
+            </form>
+        </div>
+    `;
+
+    // Jika tidak ada query, cukup tampilkan halaman dengan form pencarian
     if (!query) {
-        const contentHTML = `
-            <h1 class="section-title">Pencarian</h1>
-            <div class="card search-card">
-                <form action="/search" method="GET">
-                    <input type="search" name="q" placeholder="Ketik judul anime...">
-                    <button type="submit">
-                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-                    </button>
-                </form>
-            </div>
-        `;
-        return buildHTMLShell(`Bubuwi-V3 | Pencarian`, contentHTML);
+        return buildHTMLShell('Bubuwi-V3 | Pencarian', contentHTML);
     }
 
     // Jika ada query, lakukan scraping
@@ -377,7 +354,7 @@ async function renderSearchPage(query) {
     const { data } = await axios.get(searchUrl);
     const $ = cheerio.load(data);
     
-    let contentHTML = `<h1 class="section-title">Hasil Pencarian untuk: "${query}"</h1>`;
+    contentHTML += `<h2 class="section-title" style="margin-top:20px;">Hasil untuk: "${query}"</h2>`;
     const searchResults = [];
     $('.listupd article.bs').each((i, el) => {
         const linkElement = $(el).find('a');
@@ -408,8 +385,8 @@ async function renderSearchPage(query) {
     return buildHTMLShell(`Hasil untuk ${query}`, contentHTML);
 }
 
-
-// Halaman Subscribe dan Akun akan kita buat sederhana, karena logikanya lebih banyak di sisi klien
+// Halaman Subscribe dan Akun dibuat sederhana oleh server,
+// karena logika utamanya (mengambil data & menampilkan) akan dijalankan oleh public/app.js di browser.
 async function renderSubscribePage() {
     const contentHTML = `
         <h1 class="section-title">Langganan Saya</h1>
@@ -419,7 +396,7 @@ async function renderSubscribePage() {
             </div>
         </div>
         <script>
-            // Script kecil untuk memuat data dari localStorage
+            // Script kecil ini akan berjalan di browser pengguna
             document.addEventListener('DOMContentLoaded', () => {
                 const subs = JSON.parse(localStorage.getItem('bubuwi_subscriptions')) || [];
                 const container = document.getElementById('subscription-list');
@@ -444,20 +421,28 @@ async function renderSubscribePage() {
 }
 
 async function renderAccountPage() {
-    // Halaman ini akan menampilkan tombol login jika pengguna belum masuk
-    // Logika untuk menampilkan info pengguna akan ditangani oleh public/app.js
     const contentHTML = `
         <h1 class="section-title">Akun Saya</h1>
         <div id="user-profile-container">
-            <div class="card user-card">
-                <button id="loginBtn" style="width:100%; padding: 15px; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 12px;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo" style="width:20px; height:20px; background:white; border-radius:50%; padding:2px;">
-                    Login dengan Google
-                </button>
-            </div>
+             <div class="loading-screen"><div class="loader"></div></div>
         </div>
-        <div id="dev-contact-container">
-            </div>
+        <div id="dev-contact-container"></div>
     `;
     return buildHTMLShell('Akun Saya', contentHTML);
 }
+
+
+// ==========================================================
+// BAGIAN AKHIR: MENJALANKAN SERVER
+// ==========================================================
+// Membuat server HTTP yang akan menjalankan fungsi handler kita
+const server = http.createServer(handler);
+
+// Render akan menyediakan variabel PORT secara otomatis. 
+// 3000 adalah fallback jika dijalankan di komputer lokal.
+const PORT = process.env.PORT || 3000;
+
+// Mulai server untuk mendengarkan permintaan masuk
+server.listen(PORT, () => {
+    console.log(\`Server Bubuwi-V3 berjalan di port \${PORT}\`);
+});
