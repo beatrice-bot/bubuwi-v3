@@ -1,22 +1,81 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bubuwi-V3</title>
+    <title>Bubuwi-V3 - Anime Streaming Platform</title>
+    <link rel="icon" href="https://i.imgur.com/9uK2OPw.png" type="image/png">
     
-    <link rel="stylesheet" href="/style.css">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- GSAP Animation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    
+    <!-- Spline 3D Runtime -->
+    <script type="module" src="https://unpkg.com/@splinetool/runtime@latest/build/runtime.js"></script>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="loading-screen">
-        <div class="loader"></div>
-        <p>Memuat Bubuwi-V3...</p>
+    <!-- 3D Hero Section -->
+    <section id="hero-3d" class="hero-section">
+        <div class="hero-background"></div>
+        <div class="hero-content">
+            <div class="logo-container">
+                <img src="https://i.imgur.com/9uK2OPw.png" alt="Bubuwi-V3 Logo" class="logo">
+                <h1 class="site-title">Bubuwi-V3</h1>
+            </div>
+            <spline-viewer url="https://prod.spline.design/6Wq1Q9fGJI8zCmML/scene.splinecode" class="spline-3d"></spline-viewer>
+        </div>
+        <div class="scroll-indicator">
+            <div class="scroll-arrow"></div>
+        </div>
+    </section>
+
+    <!-- Main App Content -->
+    <main id="app-content">
+        <!-- Content will be dynamically loaded here -->
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item" data-route="/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9,22 9,12 15,12 15,22"></polyline>
+            </svg>
+            <span>Utama</span>
+        </button>
+        
+        <button class="nav-item" data-route="/subscribe">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7z"></path>
+            </svg>
+            <span>Subscribe</span>
+        </button>
+        
+        <button class="nav-item" data-route="/akun">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>Akun</span>
+        </button>
+    </nav>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
     </div>
 
-    <script type="module" src="/app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
