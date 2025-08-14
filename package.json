@@ -1,8 +1,23 @@
+
 {
-  "name": "bubuwi-v3-backend",
+  "name": "bubuwi-v3",
   "version": "1.0.0",
+  "description": "Bubuwi-V3 - Anime streaming platform",
+  "main": "index.js",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Build complete'",
+    "start": "netlify dev"
+  },
   "dependencies": {
-    "axios": "^1.7.2",
-    "cheerio": "^1.0.0-rc.12"
-  }
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  },
+  "keywords": ["anime", "streaming", "scraper"],
+  "author": "Adnan",
+  "license": "MIT"
 }
