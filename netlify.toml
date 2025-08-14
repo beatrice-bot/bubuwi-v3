@@ -1,24 +1,20 @@
-# Konfigurasi Build Utama
+
 [build]
-  # Folder yang akan di-deploy ke publik
   publish = "public"
-  # Folder tempat functions berada
   functions = "netlify/functions"
 
-# Konfigurasi spesifik untuk Functions (INI KUNCINYA)
-[functions]
-  # Memberitahu Netlify untuk meng-bundle (menggabungkan) setiap fungsi
-  # beserta dependensinya secara terpisah menggunakan esbuild.
-  # Ini adalah cara paling modern dan anti-gagal.
-  node_bundler = "esbuild"
-  
-  # Menentukan versi Node.js yang akan digunakan
-  # Kita gunakan versi 20, yang modern dan stabil
-  [functions.node_compat]
-    runtime = "nodejs20.x"
-
-# Aturan Redirect (tetap sama)
 [[redirects]]
   from = "/*"
-  to = "/.netlify/functions/server"
+  to = "/index.html"
   status = 200
+
+[dev]
+  framework = "#static"
+  command = "echo 'Static site ready'"
+  targetPort = 8888
+  port = 8889
+  publish = "public"
+  autoLaunch = true
+
+[functions]
+  directory = "netlify/functions"
